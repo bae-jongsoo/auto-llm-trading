@@ -1,0 +1,112 @@
+#!/bin/bash
+# .ralph/create_tasks — PROJECT_RULES.md + 모델 코드를 기반으로 태스크 스펙 자동 생성
+# 사용법: .ralph/create_tasks
+#
+# 전제 조건:
+#   1. PROJECT_RULES.md가 존재해야 합니다
+#   2. 모델이 작성되어 있어야 합니다 (apps/*/models.py)
+
+set -euo pipefail
+
+[ -f "PROJECT_RULES.md" ] || { echo "❌ PROJECT_RULES.md가 없습니다. 먼저 프로젝트를 초기화하세요."; exit 1; }
+command -v codex &>/dev/null || { echo "❌ codex CLI가 없습니다"; exit 1; }
+
+# 모델 파일 존재 확인
+MODEL_FILES=$(find apps -name "models.py" -not -empty 2>/dev/null | grep -v __pycache__ || true)
+if [ -z "$MODEL_FILES" ]; then
+  echo "❌ apps/*/models.py 에 모델이 없습니다. 모델을 먼저 작성하세요."
+  exit 1
+fi
+
+# tasks/ 폴더에 이미 파일이 있으면 경고
+EXISTING=$(find tasks -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$EXISTING" -gt 0 ]; then
+  echo "⚠️  tasks/ 폴더에 이미 ${EXISTING}개의 태스크가 있습니다."
+  read -p "계속하면 기존 파일은 유지하고 추가됩니다. 계속할까요? (y/N) " CONFIRM
+  [ "$CONFIRM" = "y" ] || { echo "취소됨."; exit 0; }
+fi
+
+echo "🤖 PROJECT_RULES.md + 모델 기반으로 태스크 스펙 생성 중..."
+
+TMP_PROMPT=$(mktemp)
+cat > "$TMP_PROMPT" << 'PROMPT'
+당신은 프로젝트 매니저입니다.
+
+1. PROJECT_RULES.md를 읽고 프로젝트 요구사항을 파악하세요.
+2. apps/ 아래의 models.py를 읽고 데이터 구조를 파악하세요.
+3. 기존 코드(apps/todos/)를 참고하여 태스크 스펙의 수준과 형식을 파악하세요.
+4. .ralph/prompt-test-gen.md와 .ralph/prompt-implement.md를 읽고 개발 프로세스를 이해하세요.
+
+아래 규칙에 따라 tasks/ 폴더에 태스크 스펙 파일들을 생성하세요.
+
+핵심 원칙:
+- 각 태스크는 "테스트 생성 → 구현" 2단계 랄프 루프로 개발됩니다.
+- 따라서 모든 태스크는 반드시 구현할 코드가 있어야 합니다.
+- 통합 테스트(handlers.py 호출)로 검증 가능한 진입점이 있어야 합니다.
+
+규칙:
+- 파일명: tasks/NN-태스크이름.md (NN은 01부터 순번)
+- 기존 tasks/ 파일이 있으면 그 다음 번호부터 시작
+- TODO 예시 앱(apps/todos/)은 참고용이므로 태스크에 포함하지 마세요
+- 하나의 태스크 = 하나의 기능 단위 (CRUD 묶음 또는 독립 기능)
+- 태스크 간 의존성이 있으면 의존되는 쪽이 먼저 오도록 순서를 정하세요
+
+태스크 분할 기준:
+- 통합 테스트는 handlers.py 함수를 직접 호출하여 검증합니다.
+  따라서 모든 태스크는 테스트할 수 있는 핸들러 함수가 반드시 있어야 합니다.
+- 진입점(management command, API 등)은 PROJECT_RULES.md 요구사항에 따라 있을 수도 없을 수도 있습니다.
+- 서비스 함수 없이 내부 헬퍼/유틸만으로 구성되는 모듈은
+  독립 태스크로 만들지 말고, 그것을 사용하는 기능 태스크에 포함하세요.
+  포함된 공통 함수는 해당 태스크의 서비스 함수 목록에 반드시 명시하세요.
+- 태스크의 핸들러가 다른 태스크의 결과물 없이는 단독 테스트할 수 없다면
+  독립 태스크로 분리하지 마세요. 실제로 그 기능을 사용하는 태스크에 포함하세요.
+- 환경변수/설정/스키마 검증 등 "확인" 성격의 작업은 태스크가 아닙니다.
+- 테스트 정책/전략 자체는 태스크가 아닙니다. (테스트는 각 태스크의 랄프 루프에서 생성됩니다)
+- systemd/Makefile 등 인프라 구성도 코드 구현+테스트 루프에 맞지 않으면 태스크에서 제외하세요.
+
+각 태스크 파일에 포함할 내용:
+- 개요: 한두 줄 설명
+- 핸들러 함수: 테스트가 호출할 진입점 함수 (handlers.py에 위치)
+- 서비스 함수: 핸들러가 내부에서 조합하는 단위 작업 (services.py에 위치)
+  핸들러 함수와 서비스 함수의 이름은 겹치지 않아야 합니다.
+  핸들러는 서비스의 단순 re-export가 아니라, 여러 서비스를 조합하는 역할입니다.
+- 진입점(있는 경우): PROJECT_RULES.md에 정의된 형태를 따르세요
+  - management command라면: 커맨드명, 인자, 옵션
+  - API라면: 엔드포인트, 요청/응답 JSON
+- 비즈니스 규칙: 상태 전이, 유효성 검증, 계산 로직 등
+- 에러 케이스: 발생 가능한 에러 상황
+- 참고: DB 스키마, 외부 API, 환경변수 등
+
+금지:
+- PROJECT_RULES.md에 없는 기능을 만들어내지 마세요
+- PROJECT_RULES.md에 명시된 진입점(command, API 등)을 임의로 바꾸지 마세요
+- 모델에 없는 필드를 스펙에 넣지 마세요
+- 구현할 코드가 없는 태스크(설정 확인, 정책 정의, 스키마 검증 등)를 만들지 마세요
+- 테스트할 서비스 함수가 없는 태스크를 만들지 마세요
+
+완료 조건:
+- 프로젝트의 모든 기능이 빠짐없이 태스크로 분할되어야 합니다
+- 모든 태스크가 랄프 루프(테스트 생성 → 구현)를 돌릴 수 있어야 합니다
+- 완료되면 RALPH_DONE을 출력하세요
+PROMPT
+
+codex exec --full-auto "$(cat "$TMP_PROMPT")" 2>&1 || {
+  echo ""
+  echo "⚠️  태스크 자동 생성에 실패했습니다."
+  echo "   codex 인증 상태와 네트워크를 확인하세요."
+  rm -f "$TMP_PROMPT"
+  exit 1
+}
+
+rm -f "$TMP_PROMPT"
+
+TASK_COUNT=$(ls tasks/*.md 2>/dev/null | wc -l | tr -d ' ')
+echo ""
+echo "✅ 태스크 ${TASK_COUNT}개 생성 완료"
+echo ""
+echo "다음 단계:"
+echo "  1. tasks/ 폴더의 스펙을 리뷰하세요"
+echo "  2. 태스크마다 랄프 루프 실행:"
+echo "     ./ralph-test.sh tasks/01-xxx.md"
+echo "     (테스트 리뷰)"
+echo "     ./ralph-impl.sh tasks/01-xxx.md"
