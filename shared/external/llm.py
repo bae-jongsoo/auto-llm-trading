@@ -1,2 +1,22 @@
+import os
+import subprocess
+
+
 def ask_llm(prompt: str, timeout_seconds: int = 25) -> str:
-    raise NotImplementedError
+    nanobot_bin = os.getenv("NANOBOT_BIN", "nanobot")
+    result = subprocess.run(
+        [nanobot_bin, "agent", "--no-markdown", "-m", prompt],
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip()
+        message = "LLM 실행이 비정상 종료되었습니다"
+        if stderr:
+            message = f"{message}: {stderr}"
+        raise RuntimeError(message)
+
+    return result.stdout
