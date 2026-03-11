@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from OpenDartReader import OpenDartReader
+import OpenDartReader
 
 
 def fetch_disclosures(corp_code: str) -> list[dict]:

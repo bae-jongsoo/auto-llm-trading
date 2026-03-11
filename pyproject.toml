@@ -9,6 +9,7 @@ dependencies = [
     "django-redis>=5.4",
     "python-dotenv>=1.0",
     "requests>=2.31",
+    "opendartreader>=0.2.3",
 ]
 
 [project.optional-dependencies]
@@ -21,3 +22,9 @@ dev = [
 DJANGO_SETTINGS_MODULE = "config.settings_test"
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-django>=4.12.0",
+]
