@@ -52,11 +52,11 @@ $(git log --oneline -5 2>/dev/null || echo '커밋 없음')"
 
   if echo "$RESULT" | grep -q "RALPH_DONE"; then
     echo "✅ 완료"
-    git add -A && git commit -m "Ralph 완료: $TASK_FILE (iter $ITER)" 2>/dev/null || true
+    git add -A && git commit -m "Ralph 완료($STAGE): $TASK_FILE (iter $ITER)" 2>/dev/null || true
     exit 0
   fi
 
-  git add -A && git commit -m "Ralph 진행: $TASK_FILE (iter $ITER)" 2>/dev/null || true
+  git add -A && git commit -m "Ralph 진행($STAGE): $TASK_FILE (iter $ITER)" 2>/dev/null || true
   echo "🔄 다음 iteration..."
 done
 
