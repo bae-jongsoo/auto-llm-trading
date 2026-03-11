@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.utils import timezone
@@ -29,9 +29,27 @@ from shared.stock_universe import TARGET_CORP_CODES, TARGET_STOCKS
 @pytest.fixture
 def mock_llm():
     """LLM 호출을 mock한다. 외부 경계 mock 패턴."""
-    with patch("shared.external.llm.ask_llm") as mock_external:
-        with patch("apps.trader.services.ask_llm", mock_external, create=True):
-            yield mock_external
+    with patch("shared.external.llm.subprocess.run") as mock_run:
+        yield mock_run
+
+
+PROMPT_MARKET_FIELDS = [
+    "per",
+    "pbr",
+    "eps",
+    "hts_avls",
+    "hts_frgn_ehrt",
+    "frgn_ntby_qty",
+    "pgtr_ntby_qty",
+    "vol_tnrt",
+    "w52_hgpr",
+    "w52_lwpr",
+    "w52_hgpr_vrss_prpr_ctrt",
+    "w52_lwpr_vrss_prpr_ctrt",
+    "mrkt_warn_cls_code",
+    "invt_caful_yn",
+    "short_over_yn",
+]
 
 
 # ──────────────────────────────────────
@@ -205,6 +223,24 @@ def test_매수프롬프트_생성_성공_대상10종목_정보_포함():
 
 
 @pytest.mark.django_db
+def test_매수프롬프트_필수컨텍스트_시각자산시세시장공시뉴스수집시각_포함():
+    now = timezone.now().replace(microsecond=0)
+    _매수_컨텍스트_생성(now)
+
+    prompt = build_buy_prompt(now=now)
+
+    assert now.strftime("%Y-%m-%d") in prompt
+    assert "1000000" in prompt
+    assert "70001" in prompt
+    assert "공시-005930-1" in prompt
+    assert "뉴스-005930-10" in prompt
+    assert "요약-005930-10" in prompt
+    assert "collected_at" in prompt
+    for field in PROMPT_MARKET_FIELDS:
+        assert field in prompt
+
+
+@pytest.mark.django_db
 def test_매수프롬프트_뉴스필터_useful_true_or_null만_포함():
     now = timezone.now().replace(microsecond=0)
     _매수_컨텍스트_생성(now)
@@ -221,6 +257,21 @@ def test_매수프롬프트_뉴스필터_useful_true_or_null만_포함():
     assert "뉴스-005930-10" in prompt
     assert "뉴스-005930-11" in prompt
     assert "제외되어야하는뉴스" not in prompt
+
+
+@pytest.mark.django_db
+def test_매수프롬프트_최근7일_공시만_포함():
+    now = timezone.now().replace(microsecond=0)
+    _매수_컨텍스트_생성(now)
+    오래된_공시 = _공시_생성(
+        "005930",
+        index=999,
+        published_at=now - timedelta(days=8),
+    )
+
+    prompt = build_buy_prompt(now=now)
+
+    assert 오래된_공시.title not in prompt
 
 
 @pytest.mark.django_db
@@ -252,6 +303,45 @@ def test_매도프롬프트_생성_성공_보유1종목만_포함():
     assert prompt.strip() != ""
     assert "005930" in prompt
     assert "000660" not in prompt
+
+
+@pytest.mark.django_db
+def test_매도프롬프트_필수컨텍스트_시각자산시세시장공시뉴스수집시각_포함():
+    now = timezone.now().replace(microsecond=0)
+    _매도_컨텍스트_생성(now, stock_code="005930")
+
+    prompt = build_sell_prompt("005930", now=now)
+
+    assert now.strftime("%Y-%m-%d") in prompt
+    assert "790000" in prompt
+    assert "71000" in prompt
+    assert "공시-005930-1" in prompt
+    assert "뉴스-005930-1" in prompt
+    assert "collected_at" in prompt
+    for field in PROMPT_MARKET_FIELDS:
+        assert field in prompt
+
+
+@pytest.mark.django_db
+def test_매도프롬프트_뉴스는_최근10건만_포함():
+    now = timezone.now().replace(microsecond=0)
+    _매도_컨텍스트_생성(now, stock_code="005930")
+
+    for index in range(12):
+        _뉴스_생성(
+            "005930",
+            index=100 + index,
+            useful=True,
+            title=f"최신뉴스-{index}",
+            published_at=now - timedelta(minutes=index),
+        )
+
+    prompt = build_sell_prompt("005930", now=now)
+
+    assert "최신뉴스-0" in prompt
+    assert "최신뉴스-9" in prompt
+    assert "최신뉴스-10" not in prompt
+    assert "최신뉴스-11" not in prompt
 
 
 @pytest.mark.django_db
@@ -350,6 +440,13 @@ def test_매수주문_실행_성공_즉시체결로_주문결과동일():
     assert order.result_total_amount == order.order_total_amount
     assert order.result_executed_at is not None
 
+    cash = Asset.objects.get(stock_code__isnull=True)
+    position = Asset.objects.get(stock_code="005930")
+    assert cash.total_amount == Decimal("860000.00")
+    assert cash.unit_price == cash.total_amount
+    assert position.quantity == 2
+    assert position.total_amount == Decimal("140000.00")
+
 
 @pytest.mark.django_db
 def test_매수주문_가격또는수량이_0이하이면_실패():
@@ -421,6 +518,13 @@ def test_매도주문_실행_성공_즉시체결로_주문결과동일():
     assert order.result_total_amount == order.order_total_amount
     assert order.result_executed_at is not None
 
+    cash = Asset.objects.get(stock_code__isnull=True)
+    position = Asset.objects.get(stock_code="005930")
+    assert cash.total_amount == Decimal("861000.00")
+    assert cash.unit_price == cash.total_amount
+    assert position.quantity == 2
+    assert position.total_amount == Decimal("140000.00")
+
 
 @pytest.mark.django_db
 def test_매도주문_미보유상태에서_SELL_시도_실패():
@@ -474,8 +578,10 @@ def test_매도주문_판단결과가_SELL이_아니면_실패():
 def test_트레이딩사이클_미보유시_매수판단_및_주문실행(mock_llm):
     now = timezone.now().replace(microsecond=0)
     _매수_컨텍스트_생성(now)
-    mock_llm.return_value = (
-        '{"decision":{"result":"BUY","stock_code":"005930","price":70000,"quantity":1}}'
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout='{"decision":{"result":"BUY","stock_code":"005930","price":70000,"quantity":1}}',
+        stderr="",
     )
 
     decision = run_trading_cycle(now=now)
@@ -492,8 +598,10 @@ def test_트레이딩사이클_미보유시_매수판단_및_주문실행(mock_l
 def test_트레이딩사이클_보유시_매도판단_및_주문실행(mock_llm):
     now = timezone.now().replace(microsecond=0)
     _매도_컨텍스트_생성(now, stock_code="005930")
-    mock_llm.return_value = (
-        '{"decision":{"result":"SELL","stock_code":"005930","price":71000,"quantity":1}}'
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout='{"decision":{"result":"SELL","stock_code":"005930","price":71000,"quantity":1}}',
+        stderr="",
     )
 
     decision = run_trading_cycle(now=now)
@@ -509,7 +617,11 @@ def test_트레이딩사이클_보유시_매도판단_및_주문실행(mock_llm)
 def test_트레이딩사이클_HOLD면_주문이력_생성안함(mock_llm):
     now = timezone.now().replace(microsecond=0)
     _매수_컨텍스트_생성(now)
-    mock_llm.return_value = '{"decision":{"result":"HOLD"}}'
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout='{"decision":{"result":"HOLD"}}',
+        stderr="",
+    )
 
     decision = run_trading_cycle(now=now)
 
@@ -536,11 +648,50 @@ def test_트레이딩사이클_LLM_타임아웃시_HOLD_에러이력저장(mock_
 def test_트레이딩사이클_LLM_응답파싱실패시_HOLD_에러이력저장(mock_llm):
     now = timezone.now().replace(microsecond=0)
     _매수_컨텍스트_생성(now)
-    mock_llm.return_value = "not-json"
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout="not-json",
+        stderr="",
+    )
 
     decision = run_trading_cycle(now=now)
 
     assert decision.result == DecisionHistory.Result.HOLD
     assert decision.is_error is True
+    assert DecisionHistory.objects.count() == 1
+    assert OrderHistory.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_트레이딩사이클_LLM_빈응답시_HOLD_에러이력저장(mock_llm):
+    now = timezone.now().replace(microsecond=0)
+    _매수_컨텍스트_생성(now)
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout="   ",
+        stderr="",
+    )
+
+    decision = run_trading_cycle(now=now)
+
+    assert decision.result == DecisionHistory.Result.HOLD
+    assert decision.is_error is True
+    assert DecisionHistory.objects.count() == 1
+    assert OrderHistory.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_트레이딩사이클_BUY응답_필수값누락이면_HOLD_주문미실행(mock_llm):
+    now = timezone.now().replace(microsecond=0)
+    _매수_컨텍스트_생성(now)
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout='{"decision":{"result":"BUY","stock_code":"005930","price":70000}}',
+        stderr="",
+    )
+
+    decision = run_trading_cycle(now=now)
+
+    assert decision.result == DecisionHistory.Result.HOLD
     assert DecisionHistory.objects.count() == 1
     assert OrderHistory.objects.count() == 0
