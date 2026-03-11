@@ -13,6 +13,19 @@ TARGET_STOCKS = {
     "034020": "두산에너빌리티",
 }
 
+TARGET_CORP_CODES = {
+    "005930": "00126380",
+    "000660": "00164779",
+    "105560": "00688996",
+    "055550": "00382199",
+    "035420": "00266961",
+    "035720": "00258801",
+    "000720": "00164478",
+    "005380": "00164742",
+    "000270": "00106641",
+    "034020": "00159616",
+}
+
 STOCK_NAMES = TARGET_STOCKS
 
 
@@ -32,4 +45,12 @@ def resolve_stock_codes(stock_codes: list[str] | None = None) -> list[str]:
 
 
 def resolve_target_corp_codes(stock_codes: list[str] | None = None) -> dict[str, str]:
-    raise NotImplementedError
+    target_codes = resolve_stock_codes(stock_codes)
+
+    missing_codes = [code for code in target_codes if not TARGET_CORP_CODES.get(code)]
+    if missing_codes:
+        raise RuntimeError(
+            "corp_code 매핑 누락: {}".format(", ".join(missing_codes))
+        )
+
+    return {stock_code: TARGET_CORP_CODES[stock_code] for stock_code in target_codes}

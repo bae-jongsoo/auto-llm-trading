@@ -9,3 +9,9 @@
 - 원인: 환경변수를 settings.py에 등록하지 않고 코드에서 직접 읽음.
 - 가드레일: `os.getenv()`는 `config/settings.py`에서만 사용. 앱/shared 코드는 `from django.conf import settings`로 읽는다. 테스트는 `@override_settings()` 사용.
 - 체크: `grep -r "os.getenv" --include="*.py" apps/ shared/` 결과가 0건이어야 한다.
+
+## Iteration 1 - 2026-03-12 01:01
+- 문제: `pytest`를 병렬로 동시에 실행해 테스트 DB(`test_alt`) 생성 충돌이 발생했다.
+- 원인: 같은 DB 이름을 사용하는 Django 테스트 실행을 중첩 실행했다.
+- 가드레일: Django 테스트는 동시에 1개만 실행하고, 전체 테스트는 단일 `pytest -q tests`로 검증한다.
+- 체크: `pytest -q tests`

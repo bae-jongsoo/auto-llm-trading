@@ -93,5 +93,8 @@ TELEGRAM_DEFAULT_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID", "")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
 
+# DART
+DART_API_KEY = os.getenv("DART_API_KEY", "")
+
 # LLM
 NANOBOT_BIN = os.getenv("NANOBOT_BIN", "nanobot")
