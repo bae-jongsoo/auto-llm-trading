@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -223,12 +223,15 @@ def _parse_published_at(raw_value: object) -> datetime:
     if raw_value in (None, ""):
         raise ValueError("external_id 생성에 필요한 시각값이 없습니다: published_at 필수")
 
-    if isinstance(raw_value, datetime):
-        parsed = raw_value
-    else:
-        parsed = parse_datetime(str(raw_value))
-        if parsed is None:
+    raw_text = str(raw_value).strip()
+    parsed = parse_datetime(raw_text)
+    if parsed is None:
+        parsed = _parse_compact_datetime(raw_text)
+    if parsed is None:
+        parsed_date = _parse_flexible_date(raw_text)
+        if parsed_date is None:
             raise ValueError("숫자/날짜 파싱 변환 실패: published_at")
+        parsed = datetime.combine(parsed_date, time.min)
 
     if timezone.is_naive(parsed):
         return timezone.make_aware(parsed, timezone.get_current_timezone())
@@ -264,18 +267,41 @@ def _parse_date(raw_value: object, field_name: str) -> date | None:
     if raw_value in (None, ""):
         return None
 
-    if isinstance(raw_value, datetime):
-        return raw_value.date()
-    if isinstance(raw_value, date):
-        return raw_value
+    raw_text = str(raw_value).strip()
+    parsed = _parse_flexible_date(raw_text)
+    if parsed is not None:
+        return parsed
 
-    parsed = parse_date(str(raw_value))
-    if parsed is None:
-        raise ValueError(f"숫자/날짜 파싱 변환 실패: {field_name}")
-    return parsed
+    parsed_datetime = parse_datetime(raw_text)
+    if parsed_datetime is not None:
+        return parsed_datetime.date()
+
+    parsed_datetime = _parse_compact_datetime(raw_text)
+    if parsed_datetime is not None:
+        return parsed_datetime.date()
+
+    raise ValueError(f"숫자/날짜 파싱 변환 실패: {field_name}")
 
 
 def _parse_string(raw_value: object) -> str:
     if raw_value is None:
         return ""
     return str(raw_value).strip()
+
+
+def _parse_flexible_date(raw_text: str) -> date | None:
+    parsed = parse_date(raw_text)
+    if parsed is not None:
+        return parsed
+    if len(raw_text) == 8 and raw_text.isdigit():
+        return parse_date(f"{raw_text[:4]}-{raw_text[4:6]}-{raw_text[6:8]}")
+    return None
+
+
+def _parse_compact_datetime(raw_text: str) -> datetime | None:
+    if len(raw_text) == 14 and raw_text.isdigit():
+        return parse_datetime(
+            f"{raw_text[:4]}-{raw_text[4:6]}-{raw_text[6:8]}T"
+            f"{raw_text[8:10]}:{raw_text[10:12]}:{raw_text[12:14]}"
+        )
+    return None
