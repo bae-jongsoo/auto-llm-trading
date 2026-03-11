@@ -96,5 +96,12 @@ NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
 # DART
 DART_API_KEY = os.getenv("DART_API_KEY", "")
 
+# KIS (한국투자증권)
+KIS_APP_KEY = os.getenv("KIS_APP_KEY", "")
+KIS_APP_SECRET = os.getenv("KIS_APP_SECRET", "")
+KIS_HTS_ID = os.getenv("KIS_HTS_ID", "")
+KIS_ACCT_STOCK = os.getenv("KIS_ACCT_STOCK", "")
+KIS_PROD_TYPE = os.getenv("KIS_PROD_TYPE", "")
+
 # LLM
 NANOBOT_BIN = os.getenv("NANOBOT_BIN", "nanobot")
