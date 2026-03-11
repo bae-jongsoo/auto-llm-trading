@@ -48,7 +48,10 @@ def _호출_인자에서_법인코드_목록(call_args_list: list) -> list[str]:
         if one_call.args:
             corp_codes.append(one_call.args[0])
             continue
-        corp_codes.append(one_call.kwargs["corp_code"])
+        if "corp_code" in one_call.kwargs:
+            corp_codes.append(one_call.kwargs["corp_code"])
+            continue
+        corp_codes.append(one_call.kwargs["corp"])
     return corp_codes
 
 
@@ -80,9 +83,8 @@ def test_대상_법인코드_지원하지_않는_종목코드_실패():
 
 def test_대상_법인코드_매핑누락_실패():
     with patch.dict(
-        "shared.stock_universe.TARGET_CORP_CODES",
-        {"005930": "00126380"},
-        clear=True,
+        "shared.stock_universe.__dict__",
+        {"TARGET_CORP_CODES": {"005930": "00126380"}},
     ):
         with pytest.raises(RuntimeError, match="corp_code|매핑|누락"):
             resolve_target_corp_codes(["000660"])
@@ -189,9 +191,11 @@ def test_공시_upsert_rcept_no_누락시_실패():
 # ──────────────────────────────────────
 
 @pytest.mark.django_db
+@override_settings(DART_API_KEY="dart-test-key")
 def test_다트_수집_성공_법인코드기준_호출_및_DB저장():
-    with patch("apps.dart.services.fetch_disclosures") as mock_fetch:
-        mock_fetch.side_effect = [
+    with patch("shared.external.dart_api.OpenDartReader") as mock_reader_cls:
+        mock_reader = mock_reader_cls.return_value
+        mock_reader.list.side_effect = [
             [_공시_행(rcept_no="20260311000101", title="삼성 공시")],
             [_공시_행(rcept_no="20260311000102", title="하이닉스 공시")],
         ]
@@ -200,17 +204,24 @@ def test_다트_수집_성공_법인코드기준_호출_및_DB저장():
 
     assert isinstance(result, dict)
     assert DartDisclosure.objects.count() == 2
-    assert _호출_인자에서_법인코드_목록(mock_fetch.call_args_list) == ["00126380", "00164779"]
+    assert _호출_인자에서_법인코드_목록(mock_reader.list.call_args_list) == [
+        "00126380",
+        "00164779",
+    ]
 
 
 @pytest.mark.django_db
+@override_settings(DART_API_KEY="dart-test-key")
 def test_다트_수집_stock_codes_미지정시_대상10종목_전체호출():
-    with patch("apps.dart.services.fetch_disclosures", return_value=[]) as mock_fetch:
+    with patch("shared.external.dart_api.OpenDartReader") as mock_reader_cls:
+        mock_reader = mock_reader_cls.return_value
+        mock_reader.list.return_value = []
+
         result = collect_dart()
 
     assert isinstance(result, dict)
-    assert mock_fetch.call_count == 10
-    assert set(_호출_인자에서_법인코드_목록(mock_fetch.call_args_list)) == set(
+    assert mock_reader.list.call_count == 10
+    assert set(_호출_인자에서_법인코드_목록(mock_reader.list.call_args_list)) == set(
         EXPECTED_TARGET_CORP_CODES.values()
     )
 
@@ -222,7 +233,11 @@ def test_다트_수집_지원하지_않는_종목코드_실패():
 
 
 @pytest.mark.django_db
+@override_settings(DART_API_KEY="dart-test-key")
 def test_다트_수집_외부호출_실패():
-    with patch("apps.dart.services.fetch_disclosures", side_effect=RuntimeError("OpenDartReader 실패")):
+    with patch("shared.external.dart_api.OpenDartReader") as mock_reader_cls:
+        mock_reader = mock_reader_cls.return_value
+        mock_reader.list.side_effect = RuntimeError("OpenDartReader 실패")
+
         with pytest.raises(RuntimeError, match="OpenDartReader|호출|실패"):
             collect_dart(stock_codes=["005930"])
