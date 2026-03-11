@@ -1,9 +1,10 @@
-import os
 import subprocess
+
+from django.conf import settings
 
 
 def ask_llm(prompt: str, timeout_seconds: int = 25) -> str:
-    nanobot_bin = os.getenv("NANOBOT_BIN", "nanobot")
+    nanobot_bin = settings.NANOBOT_BIN
     result = subprocess.run(
         [nanobot_bin, "agent", "--no-markdown", "-m", prompt],
         capture_output=True,

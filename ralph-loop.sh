@@ -47,7 +47,7 @@ $(cat "$TASK_FILE")
 [현재 프로젝트 상태]
 $(git log --oneline -5 2>/dev/null || echo '커밋 없음')"
 
-  RESULT=$(codex exec --full-auto -s danger-full-access "$FULL_PROMPT" 2>&1) || true
+  RESULT=$(codex exec --dangerously-bypass-approvals-and-sandbox "$FULL_PROMPT" 2>&1) || true
   echo "$RESULT" >> "$LOG"
 
   if echo "$RESULT" | grep -q "RALPH_DONE"; then

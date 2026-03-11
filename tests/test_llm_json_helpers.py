@@ -1,8 +1,8 @@
-import os
 import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.test import override_settings
 from shared.external.llm import ask_llm
 from shared.utils.json_helpers import normalize_trade_decision, parse_llm_json_object
 
@@ -22,6 +22,7 @@ def mock_subprocess_run():
 # ask_llm
 # ──────────────────────────────────────
 
+@override_settings(NANOBOT_BIN="nanobot")
 def test_ask_llm_기본_바이너리_호출_및_stdout_반환(mock_subprocess_run):
     mock_subprocess_run.return_value = MagicMock(
         returncode=0,
@@ -29,8 +30,7 @@ def test_ask_llm_기본_바이너리_호출_및_stdout_반환(mock_subprocess_ru
         stderr="",
     )
 
-    with patch.dict(os.environ, {}, clear=True):
-        raw = ask_llm("테스트 프롬프트", timeout_seconds=7)
+    raw = ask_llm("테스트 프롬프트", timeout_seconds=7)
 
     assert raw == '{"decision":{"result":"HOLD"}}'
     mock_subprocess_run.assert_called_once_with(
@@ -42,11 +42,11 @@ def test_ask_llm_기본_바이너리_호출_및_stdout_반환(mock_subprocess_ru
     )
 
 
-def test_ask_llm_NANOBOT_BIN_환경변수_사용(mock_subprocess_run):
+@override_settings(NANOBOT_BIN="/usr/local/bin/custom-bot")
+def test_ask_llm_NANOBOT_BIN_설정_사용(mock_subprocess_run):
     mock_subprocess_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
 
-    with patch.dict(os.environ, {"NANOBOT_BIN": "/usr/local/bin/custom-bot"}, clear=True):
-        ask_llm("프롬프트")
+    ask_llm("프롬프트")
 
     called_args = mock_subprocess_run.call_args[0][0]
     assert called_args[0] == "/usr/local/bin/custom-bot"
