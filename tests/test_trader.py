@@ -345,6 +345,24 @@ def test_매도프롬프트_뉴스는_최근10건만_포함():
 
 
 @pytest.mark.django_db
+def test_매도프롬프트_뉴스필터_useful_true_or_null만_포함():
+    now = timezone.now().replace(microsecond=0)
+    _매도_컨텍스트_생성(now, stock_code="005930")
+    _뉴스_생성(
+        "005930",
+        index=999,
+        useful=False,
+        title="매도프롬프트에서제외되어야하는뉴스",
+        published_at=now - timedelta(minutes=10),
+    )
+
+    prompt = build_sell_prompt("005930", now=now)
+
+    assert "뉴스-005930-1" in prompt
+    assert "매도프롬프트에서제외되어야하는뉴스" not in prompt
+
+
+@pytest.mark.django_db
 def test_매도프롬프트_미보유_종목코드_실패():
     now = timezone.now().replace(microsecond=0)
     _매도_컨텍스트_생성(now, stock_code="005930")
@@ -693,5 +711,23 @@ def test_트레이딩사이클_BUY응답_필수값누락이면_HOLD_주문미실
     decision = run_trading_cycle(now=now)
 
     assert decision.result == DecisionHistory.Result.HOLD
+    assert DecisionHistory.objects.count() == 1
+    assert OrderHistory.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_트레이딩사이클_result_허용값아님이면_HOLD_에러이력저장(mock_llm):
+    now = timezone.now().replace(microsecond=0)
+    _매수_컨텍스트_생성(now)
+    mock_llm.return_value = MagicMock(
+        returncode=0,
+        stdout='{"decision":{"result":"STRONG_BUY","stock_code":"005930","price":70000,"quantity":1}}',
+        stderr="",
+    )
+
+    decision = run_trading_cycle(now=now)
+
+    assert decision.result == DecisionHistory.Result.HOLD
+    assert decision.is_error is True
     assert DecisionHistory.objects.count() == 1
     assert OrderHistory.objects.count() == 0
