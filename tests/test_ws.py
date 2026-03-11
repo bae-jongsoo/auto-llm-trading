@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
+from unittest.mock import patch
 
 import pytest
-from django.test import override_settings
 from django.utils import timezone
 from django_redis import get_redis_connection
 
@@ -12,6 +12,7 @@ from apps.ws.services import (
     trim_ticks,
 )
 from shared.external.kis_ws import build_ws_subscribe_messages
+from shared.stock_universe import TARGET_STOCKS
 
 
 @pytest.fixture
@@ -105,6 +106,14 @@ def test_웹소켓_구독메시지_생성_성공_체결호가2건():
     assert {_메시지_tr_id(message) for message in messages} == {"H0STCNT0", "H0STASP0"}
 
 
+def test_웹소켓_구독메시지_대상10종목_전체_생성_성공():
+    for stock_code in TARGET_STOCKS:
+        messages = build_ws_subscribe_messages(stock_code)
+        assert len(messages) == 2
+        assert {_메시지_tr_key(message) for message in messages} == {stock_code}
+        assert {_메시지_tr_id(message) for message in messages} == {"H0STCNT0", "H0STASP0"}
+
+
 def test_웹소켓_구독메시지_지원하지_않는_종목코드_실패():
     with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
         build_ws_subscribe_messages("999999")
@@ -123,6 +132,23 @@ def test_체결틱_저장_성공_최근가격흐름_반영(redis_client):
     flow = _결과_흐름(result)
     assert len(flow) == 1
     assert _흐름_가격(flow[0]) == 70100
+
+
+def test_체결틱_저장_대상10종목_전체_허용(redis_client):
+    now = timezone.now().replace(microsecond=0)
+
+    for index, stock_code in enumerate(TARGET_STOCKS):
+        save_trade_tick(
+            stock_code,
+            _체결_tick(trade_id=f"trade-{index}", price=70000 + index),
+            now=now,
+        )
+
+    for index, stock_code in enumerate(TARGET_STOCKS):
+        result = get_recent_price_flow(stock_code, minutes=10)
+        flow = _결과_흐름(result)
+        assert len(flow) == 1
+        assert _흐름_가격(flow[0]) == 70000 + index
 
 
 def test_호가틱_저장_성공_체결과_키분리(redis_client):
@@ -222,6 +248,11 @@ def test_체결틱_웹소켓_필수필드_누락_실패(redis_client):
         save_trade_tick("005930", {"trade_id": "missing-price"}, now=timezone.now())
 
 
+def test_호가틱_웹소켓_필수필드_누락_실패(redis_client):
+    with pytest.raises(ValueError, match="필수|누락"):
+        save_quote_tick("005930", {"quote_time": "09:00:01"}, now=timezone.now())
+
+
 def test_체결틱_비정상_메시지_파싱실패(redis_client):
     with pytest.raises(ValueError, match="파싱|형식|메시지|JSON"):
         save_trade_tick(
@@ -231,18 +262,14 @@ def test_체결틱_비정상_메시지_파싱실패(redis_client):
         )
 
 
-@override_settings(
-    CACHES={
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://127.0.0.1:1/15",
-            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        }
-    }
-)
 def test_체결틱_저장_Redis_연결실패():
-    with pytest.raises(Exception, match="Redis|redis|Connection|연결|refused|거부"):
-        save_trade_tick("005930", _체결_tick(), now=timezone.now())
+    with patch(
+        "apps.ws.services.get_redis_connection",
+        side_effect=ConnectionError("Redis connection refused"),
+        create=True,
+    ):
+        with pytest.raises(Exception, match="Redis|redis|Connection|연결|refused|거부"):
+            save_trade_tick("005930", _체결_tick(), now=timezone.now())
 
 
 def test_연결재개_중복체결틱_중복저장_방지(redis_client):
