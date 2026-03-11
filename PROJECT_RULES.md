@@ -102,6 +102,10 @@ while True:
 - 종목 정책:
   - 지원 종목 코드는 `shared/stock_universe.py`의 `TARGET_STOCKS`를 기준으로 강제한다.
   - 사전 지정 10개 종목 외 코드는 허용하지 않는다.
+- 환경변수 정책:
+  - `os.getenv()`는 `config/settings.py`에서만 사용한다.
+  - 앱 코드(`apps/`, `shared/`)에서는 `from django.conf import settings`로 읽는다.
+  - 테스트에서 설정값 변경이 필요하면 `@override_settings()`를 사용한다.
 - 시간 정책:
   - KST(`Asia/Seoul`) 고정.
   - 스케줄은 월~금 기준으로 운영한다.

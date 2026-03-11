@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from html import unescape
 
@@ -64,10 +63,8 @@ def fetch_news(stock_code: str, limit: int = 10) -> list[dict]:
 
 
 def _get_naver_credentials() -> tuple[str, str]:
-    client_id = os.getenv("NAVER_CLIENT_ID") or getattr(settings, "NAVER_CLIENT_ID", "")
-    client_secret = os.getenv("NAVER_CLIENT_SECRET") or getattr(
-        settings, "NAVER_CLIENT_SECRET", ""
-    )
+    client_id = settings.NAVER_CLIENT_ID
+    client_secret = settings.NAVER_CLIENT_SECRET
     if not client_id or not client_secret:
         raise RuntimeError("NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET이 설정되지 않았습니다")
     return client_id, client_secret
