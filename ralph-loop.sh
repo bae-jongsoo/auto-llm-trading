@@ -9,6 +9,12 @@ TASK_FILE="${2:?태스크 파일 경로 필요}"
 MAX_ITER="${3:-20}"
 ITER=0
 LOG=".ralph/activity.log"
+STAGE="test"
+
+if [ "$(basename "$PROMPT_FILE")" = "prompt-implement.md" ]; then
+  STAGE="implementation"
+fi
+
 mkdir -p .ralph
 
 [ -f "$PROMPT_FILE" ] || { echo "❌ $PROMPT_FILE 없음"; exit 1; }
@@ -32,6 +38,11 @@ while [ $ITER -lt $MAX_ITER ]; do
 
 [태스크 스펙]
 $(cat "$TASK_FILE")
+
+[루프 메타]
+- 단계: $STAGE
+- iteration: $ITER / $MAX_ITER
+- activity_log: $LOG
 
 [현재 프로젝트 상태]
 $(git log --oneline -5 2>/dev/null || echo '커밋 없음')"

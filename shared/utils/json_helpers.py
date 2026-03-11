@@ -18,9 +18,6 @@ def parse_llm_json_object(raw_text: str) -> dict:
 
 
 def normalize_trade_decision(payload: dict) -> dict:
-    if not isinstance(payload, dict):
-        raise ValueError("payload는 dict여야 합니다")
-
     decision = payload.get("decision")
     if not isinstance(decision, dict):
         raise ValueError("decision 키가 필요합니다")

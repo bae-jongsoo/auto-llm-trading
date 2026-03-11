@@ -88,3 +88,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_DEFAULT_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# LLM
+NANOBOT_BIN = os.getenv("NANOBOT_BIN", "nanobot")

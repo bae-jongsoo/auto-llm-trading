@@ -106,6 +106,15 @@ while True:
   - KST(`Asia/Seoul`) 고정.
   - 스케줄은 월~금 기준으로 운영한다.
 
+- 타입 힌트 신뢰 원칙:
+  - 타입 힌트가 명시된 내부 함수 인자에 대해 방어적 런타임 타입검사(`isinstance`, `type(...) is ...`)를 작성하지 않는다.
+  - 타입 검증은 외부 경계(API 요청 파싱, command 인자, 외부 입력 역직렬화)에서만 수행한다.
+  - 내부 services/shared/utils 함수는 도메인 규칙 검증에 집중한다.
+- Ralph 구현 단계 가드레일 기록:
+  - 구현 단계(`.ralph/prompt-implement.md` 사용) iteration에서만 `.ralph/guardrails.md`를 적용한다.
+  - iteration 시작 시 기존 guardrail을 먼저 읽고 우선 적용한다.
+  - 실패/실수/회귀 수정 시 문제/원인/가드레일/체크를 iteration 단위로 누적 기록한다.
+
 ## DB 규칙
 - 공통 규칙:
   - 모든 테이블에는 조회 성능을 위한 적절한 인덱스를 구성한다.
@@ -309,6 +318,7 @@ def ask_llm(
 - 현재 단계에서 슬리피지/수수료/부분체결을 임의 반영하는 행위
 - 테스트에서 stdout/API 포맷에 의존하거나, 내부 서비스를 과도하게 mock하는 행위
 
+- 타입 힌트가 있는 내부 함수 인자에 대해 `if not isinstance(...)` 같은 방어 코드를 작성하는 행위
 ## 환경변수
 - 루트 `.env`에서 관리하고 `config/settings.py`에서 로드한다.
 - PRD 필수 환경변수:
