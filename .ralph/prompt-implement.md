@@ -6,7 +6,7 @@
 4. 테스트가 전부 통과하도록 구현 코드를 작성하세요.
 
 규칙:
-- apps/todos/의 구조를 따르세요 (models.py, services.py, api.py, schemas.py).
+- apps/todos/의 구조를 따르되, 태스크 스펙에 진입점이 management command만 있으면 api.py/schemas.py를 만들지 마세요.
 - API / Command → services.py(비즈니스 로직) → Model/DB 레이어 구조를 따르세요.
 - 로직이 복잡해지면 services.py에서 분리하세요.
 - 외부 API 연동 모듈은 shared/external/에, 공통 유틸리티는 shared/utils/에 작성하세요.
@@ -31,6 +31,7 @@
 - 동일한 원인의 중복 항목은 새로 만들지 말고 기존 항목을 보강하세요.
 
 완료 조건:
+- 태스크 스펙에 해당하는 테스트 파일이 tests/ 폴더에 존재해야 합니다. 테스트 파일이 없으면 완료가 아닙니다.
 - tests/ 폴더의 테스트가 전부 PASS하면 RALPH_DONE을 출력하세요.
 - 랄프 루프의 완료 조건은 tests/ 폴더의 테스트만 해당합니다.
 
