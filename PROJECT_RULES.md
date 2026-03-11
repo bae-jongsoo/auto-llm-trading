@@ -79,7 +79,6 @@ while True:
   - `apps/ws/`
 - `shared/`
   - `shared/external/telegram.py`: 외부 API 연동 모듈
-  - `shared/utils/market.py`, `shared/utils/json_helpers.py`: 공통 유틸리티
   - `shared/models.py`: 공통 모델 믹스인/수집 베이스
   - `shared/stock_universe.py`: 대상 종목 코드/이름 관리
 - `config/`
@@ -293,9 +292,8 @@ def ask_llm(
 - 기준 파일: `tests/test_todos.py`
 - 완료 조건:
   - `tests/` 폴더의 테스트가 Ralph 루프 완료 조건이다.
-  - PRD 요구의 `make check`는 통합 테스트들을 모두 실행하고 성공 시 종료코드 `1`, 실패 시 `0`을 반환하도록 유지한다.
 - 작성 원칙:
-  - 서비스 함수 단위 테스트를 기본으로 한다(`apps.<domain>.services` 직접 호출).
+  - 서비스 함수를 직접 호출하여 검증한다(`apps.<domain>.services` 직접 호출).
   - 내부 서비스 로직은 mock하지 않는다.
   - 외부 경계(`shared/external/`)만 mock/patch 한다.
   - 예외는 `pytest.raises(..., match=...)` 형태로 검증한다.
