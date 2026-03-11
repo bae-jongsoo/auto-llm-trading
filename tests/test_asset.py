@@ -58,6 +58,32 @@ def test_현금_row가_중복이면_실패():
         get_cash_asset()
 
 
+@pytest.mark.django_db
+def test_현금_row_수량규칙_위반이면_실패():
+    Asset.objects.create(
+        stock_code=None,
+        quantity=2,
+        unit_price=Decimal("1000000.00"),
+        total_amount=Decimal("1000000.00"),
+    )
+
+    with pytest.raises(RuntimeError):
+        get_cash_asset()
+
+
+@pytest.mark.django_db
+def test_현금_row_단가총액불일치면_실패():
+    Asset.objects.create(
+        stock_code=None,
+        quantity=1,
+        unit_price=Decimal("999999.99"),
+        total_amount=Decimal("1000000.00"),
+    )
+
+    with pytest.raises(RuntimeError):
+        get_cash_asset()
+
+
 # ──────────────────────────────────────
 # get_open_position
 # ──────────────────────────────────────
@@ -171,6 +197,15 @@ def test_가상매수_현금_row가_없으면_실패():
         apply_virtual_buy("005930", Decimal("70000.00"), 1)
 
 
+@pytest.mark.django_db
+def test_가상매수_현금_row가_중복이면_실패():
+    _현금_생성(Decimal("1000000.00"))
+    _현금_생성(Decimal("500000.00"))
+
+    with pytest.raises(RuntimeError):
+        apply_virtual_buy("005930", Decimal("70000.00"), 1)
+
+
 # ──────────────────────────────────────
 # apply_virtual_sell
 # ──────────────────────────────────────
@@ -250,6 +285,14 @@ def test_가상매도_보유수량_초과면_실패():
 def test_가상매도_현금_row가_중복이면_실패():
     _현금_생성(Decimal("1000000.00"))
     _현금_생성(Decimal("500000.00"))
+    _보유종목_생성("005930", quantity=1, unit_price=Decimal("70000.00"))
+
+    with pytest.raises(RuntimeError):
+        apply_virtual_sell("005930", Decimal("70000.00"), 1)
+
+
+@pytest.mark.django_db
+def test_가상매도_현금_row가_없으면_실패():
     _보유종목_생성("005930", quantity=1, unit_price=Decimal("70000.00"))
 
     with pytest.raises(RuntimeError):
