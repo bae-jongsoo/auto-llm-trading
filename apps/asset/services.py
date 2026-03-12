@@ -3,7 +3,6 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.asset.models import Asset
-from shared.stock_universe import validate_stock_code
 
 
 def _validate_positive_order(price: Decimal, quantity: int) -> None:
@@ -36,7 +35,6 @@ def get_open_position() -> Asset | None:
 
 
 def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[Asset, Asset]:
-    normalized_stock_code = validate_stock_code(stock_code)
     _validate_positive_order(price=price, quantity=quantity)
     buy_amount = price * quantity
 
@@ -44,7 +42,7 @@ def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[A
         cash = get_cash_asset()
         position = get_open_position()
 
-        if position is not None and position.stock_code != normalized_stock_code:
+        if position is not None and position.stock_code != stock_code:
             raise ValueError("다른 종목을 이미 보유 중입니다")
         if cash.total_amount < buy_amount:
             raise ValueError("현금이 부족합니다")
@@ -55,7 +53,7 @@ def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[A
 
         if position is None:
             position = Asset.objects.create(
-                stock_code=normalized_stock_code,
+                stock_code=stock_code,
                 quantity=quantity,
                 unit_price=price,
                 total_amount=buy_amount,
@@ -72,7 +70,6 @@ def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[A
 
 
 def apply_virtual_sell(stock_code: str, price: Decimal, quantity: int) -> tuple[Asset, Asset]:
-    normalized_stock_code = validate_stock_code(stock_code)
     _validate_positive_order(price=price, quantity=quantity)
     sell_amount = price * quantity
 
@@ -80,7 +77,7 @@ def apply_virtual_sell(stock_code: str, price: Decimal, quantity: int) -> tuple[
         cash = get_cash_asset()
         position = get_open_position()
 
-        if position is None or position.stock_code != normalized_stock_code:
+        if position is None or position.stock_code != stock_code:
             raise ValueError("해당 종목을 보유하고 있지 않습니다")
         if quantity > position.quantity:
             raise ValueError("보유 수량을 초과해 매도할 수 없습니다")

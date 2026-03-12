@@ -9,7 +9,7 @@ from apps.news.models import News
 from shared.external.llm import ask_llm
 from shared.external.naver_news import fetch_news
 from shared.external.web_content import extract_article_text
-from shared.stock_universe import resolve_stock_codes, validate_stock_code
+from shared.stock_universe import resolve_stock_codes
 from shared.utils.json_helpers import parse_llm_json_object
 
 NEWS_SUMMARY_PROMPT_TEMPLATE = """아래는 뉴스 본문이다. 이걸 요약하고 주식 단타에 도움이 되는지 판단 후,
@@ -21,8 +21,6 @@ NEWS_SUMMARY_PROMPT_TEMPLATE = """아래는 뉴스 본문이다. 이걸 요약�
 
 
 def upsert_news_items(stock_code: str, items: list[dict]) -> list[News]:
-    normalized_stock_code = validate_stock_code(stock_code)
-
     saved_news: list[News] = []
     with transaction.atomic():
         for item in items:
@@ -30,11 +28,11 @@ def upsert_news_items(stock_code: str, items: list[dict]) -> list[News]:
             if not link:
                 raise ValueError("link 필수값이 누락되었습니다")
 
-            external_id = News.build_external_id(normalized_stock_code, link)
+            external_id = News.build_external_id(stock_code, link)
             news, _ = News.objects.update_or_create(
                 external_id=external_id,
                 defaults={
-                    "stock_code": normalized_stock_code,
+                    "stock_code": stock_code,
                     "link": link,
                     "title": (item.get("title") or "").strip(),
                     "description": (item.get("description") or "").strip() or None,
@@ -88,11 +86,10 @@ def collect_news(stock_codes: list[str] | None = None, limit: int = 10) -> dict:
     summarized_items_count = 0
 
     for stock_code in target_stock_codes:
-        normalized_stock_code = validate_stock_code(stock_code)
-        fetched_items = fetch_news(normalized_stock_code, limit)
+        fetched_items = fetch_news(stock_code, limit)
         fetched_items_count += len(fetched_items)
 
-        saved_items = upsert_news_items(normalized_stock_code, fetched_items)
+        saved_items = upsert_news_items(stock_code, fetched_items)
         saved_items_count += len(saved_items)
 
         for news in saved_items:

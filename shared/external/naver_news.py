@@ -6,18 +6,17 @@ from html import unescape
 import requests
 from django.conf import settings
 
-from shared.stock_universe import TARGET_STOCKS, validate_stock_code
+from shared.stock_universe import TARGET_STOCKS
 
 NAVER_NEWS_API_URL = "https://openapi.naver.com/v1/search/news.json"
 
 
 def fetch_news(stock_code: str, limit: int = 10) -> list[dict]:
-    normalized_stock_code = validate_stock_code(stock_code)
     if limit <= 0:
         raise ValueError("limit은 1 이상이어야 합니다")
 
     client_id, client_secret = _get_naver_credentials()
-    query = f"{TARGET_STOCKS[normalized_stock_code]} 주식"
+    query = f"{TARGET_STOCKS[stock_code]} 주식"
 
     try:
         response = requests.get(

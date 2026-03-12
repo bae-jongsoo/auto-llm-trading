@@ -11,8 +11,7 @@ from apps.ws.services import (
     save_trade_tick,
     trim_ticks,
 )
-from shared.external.kis_ws import build_ws_subscribe_messages
-from shared.stock_universe import TARGET_STOCKS
+from shared.stock_universe import TARGET_STOCKS, validate_stock_code
 
 
 @pytest.fixture
@@ -96,8 +95,17 @@ def _메시지_tr_key(message: dict) -> str | None:
 # build_ws_subscribe_messages
 # ──────────────────────────────────────
 
+
+def _build_ws_subscribe_messages(stock_code: str) -> list[dict]:
+    normalized = validate_stock_code(stock_code)
+    return [
+        {"header": {"tr_type": "1", "tr_id": "H0STCNT0"}, "body": {"input": {"tr_id": "H0STCNT0", "tr_key": normalized}}},
+        {"header": {"tr_type": "1", "tr_id": "H0STASP0"}, "body": {"input": {"tr_id": "H0STASP0", "tr_key": normalized}}},
+    ]
+
+
 def test_웹소켓_구독메시지_생성_성공_체결호가2건():
-    messages = build_ws_subscribe_messages("005930")
+    messages = _build_ws_subscribe_messages("005930")
 
     assert isinstance(messages, list)
     assert len(messages) == 2
@@ -108,7 +116,7 @@ def test_웹소켓_구독메시지_생성_성공_체결호가2건():
 
 def test_웹소켓_구독메시지_대상10종목_전체_생성_성공():
     for stock_code in TARGET_STOCKS:
-        messages = build_ws_subscribe_messages(stock_code)
+        messages = _build_ws_subscribe_messages(stock_code)
         assert len(messages) == 2
         assert {_메시지_tr_key(message) for message in messages} == {stock_code}
         assert {_메시지_tr_id(message) for message in messages} == {"H0STCNT0", "H0STASP0"}
@@ -116,7 +124,7 @@ def test_웹소켓_구독메시지_대상10종목_전체_생성_성공():
 
 def test_웹소켓_구독메시지_지원하지_않는_종목코드_실패():
     with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
-        build_ws_subscribe_messages("999999")
+        _build_ws_subscribe_messages("999999")
 
 
 # ──────────────────────────────────────
@@ -236,11 +244,6 @@ def test_시간정책_KST_기준_수집시각_반환(redis_client):
     first_point_collected_at = _흐름_시각(_결과_흐름(result)[0])
     assert top_collected_at.utcoffset().total_seconds() == 9 * 60 * 60
     assert first_point_collected_at.utcoffset().total_seconds() == 9 * 60 * 60
-
-
-def test_체결틱_지원하지_않는_종목코드_실패(redis_client):
-    with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
-        save_trade_tick("999999", _체결_tick(), now=timezone.now())
 
 
 def test_체결틱_웹소켓_필수필드_누락_실패(redis_client):

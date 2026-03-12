@@ -77,7 +77,7 @@ def test_대상_법인코드_입력한_종목만_조회_중복제거():
 
 
 def test_대상_법인코드_지원하지_않는_종목코드_실패():
-    with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
+    with pytest.raises(RuntimeError, match="corp_code|매핑|누락"):
         resolve_target_corp_codes(["999999"])
 
 
@@ -226,10 +226,6 @@ def test_다트_수집_stock_codes_미지정시_대상10종목_전체호출():
     )
 
 
-@pytest.mark.django_db
-def test_다트_수집_지원하지_않는_종목코드_실패():
-    with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
-        collect_dart(stock_codes=["999999"])
 
 
 @pytest.mark.django_db

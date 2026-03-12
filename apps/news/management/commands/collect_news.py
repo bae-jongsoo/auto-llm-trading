@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.news import services
+from shared.stock_universe import validate_stock_code
 
 
 class Command(BaseCommand):
@@ -30,6 +31,13 @@ class Command(BaseCommand):
             else None
         )
         limit = options["limit"]
+
+        if stock_codes:
+            for code in stock_codes:
+                try:
+                    validate_stock_code(code)
+                except ValueError as exc:
+                    raise CommandError(str(exc))
 
         result = services.collect_news(stock_codes=stock_codes, limit=limit)
 

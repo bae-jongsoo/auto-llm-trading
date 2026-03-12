@@ -8,8 +8,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 
 from apps.market.models import MarketSnapshot
-from shared.external.kis_quote import fetch_inquire_price
-from shared.stock_universe import resolve_stock_codes, validate_stock_code
+from shared.external.kis import KisClient
+from shared.stock_universe import resolve_stock_codes
 
 DECIMAL_FIELDS = [
     "per",
@@ -149,11 +149,10 @@ PROMPT_FIELDS = [
 
 
 def normalize_market_snapshot(stock_code: str, payload: dict) -> dict:
-    normalized_stock_code = validate_stock_code(stock_code)
     published_at = _parse_published_at(payload.get("published_at"))
 
     normalized: dict = {
-        "stock_code": normalized_stock_code,
+        "stock_code": stock_code,
         "published_at": published_at,
     }
 
@@ -199,12 +198,13 @@ def collect_market_snapshots(stock_codes: list[str] | None = None) -> dict:
     fetched_items_count = 0
     saved_items_count = 0
 
+    client = KisClient()
     for stock_code in target_stock_codes:
-        normalized_stock_code = validate_stock_code(stock_code)
-        payload = fetch_inquire_price(normalized_stock_code)
+        payload = client.fetch_inquire_price(stock_code)
+        payload.setdefault("published_at", timezone.now().isoformat())
         fetched_items_count += 1
 
-        snapshot_data = normalize_market_snapshot(normalized_stock_code, payload)
+        snapshot_data = normalize_market_snapshot(stock_code, payload)
         upsert_market_snapshot(snapshot_data)
         saved_items_count += 1
 

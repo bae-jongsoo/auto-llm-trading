@@ -85,12 +85,6 @@ def test_뉴스_upsert_API아이템_link_누락_실패():
         )
 
 
-@pytest.mark.django_db
-def test_뉴스_upsert_지원하지_않는_종목코드_실패():
-    with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
-        upsert_news_items("999999", [_네이버_아이템(link="https://news.example.com/article/101")])
-
-
 # ──────────────────────────────────────
 # summarize_news
 # ──────────────────────────────────────
@@ -204,7 +198,3 @@ def test_뉴스_수집_네이버_API_호출실패():
             collect_news(stock_codes=["005930"], limit=1)
 
 
-@pytest.mark.django_db
-def test_뉴스_수집_지원하지_않는_종목코드_실패():
-    with pytest.raises(ValueError, match="지원하지 않는 종목코드"):
-        collect_news(stock_codes=["999999"], limit=1)

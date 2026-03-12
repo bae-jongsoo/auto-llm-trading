@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.dart import services
+from shared.stock_universe import validate_stock_code
 
 
 class Command(BaseCommand):
@@ -23,6 +24,13 @@ class Command(BaseCommand):
             if raw_stock_codes
             else None
         )
+
+        if stock_codes:
+            for code in stock_codes:
+                try:
+                    validate_stock_code(code)
+                except ValueError as exc:
+                    raise CommandError(str(exc))
 
         result = services.collect_dart(stock_codes=stock_codes)
 

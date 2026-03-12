@@ -39,9 +39,7 @@ def validate_stock_code(stock_code: str) -> str:
 
 
 def resolve_stock_codes(stock_codes: list[str] | None = None) -> list[str]:
-    if not stock_codes:
-        return list(TARGET_STOCKS.keys())
-    return list(dict.fromkeys(validate_stock_code(c) for c in stock_codes))
+    return stock_codes or list(TARGET_STOCKS.keys())
 
 
 def resolve_target_corp_codes(stock_codes: list[str] | None = None) -> dict[str, str]:

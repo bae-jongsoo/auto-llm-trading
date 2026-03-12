@@ -23,7 +23,7 @@ from apps.news.models import News
 from apps.trader.models import DecisionHistory, OrderHistory
 from apps.ws.services import get_recent_price_flow
 from shared.external.llm import ask_llm
-from shared.stock_universe import TARGET_STOCKS, validate_stock_code
+from shared.stock_universe import TARGET_STOCKS
 from shared.utils.json_helpers import normalize_trade_decision, parse_llm_json_object
 
 KST = ZoneInfo("Asia/Seoul")
@@ -55,14 +55,13 @@ def build_buy_prompt(now: datetime | None = None) -> str | None:
 
 
 def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str | None:
-    normalized_stock_code = validate_stock_code(stock_code)
     current_time = _resolve_now(now)
     cash = get_cash_asset()
     position = get_open_position()
-    if position is None or position.stock_code != normalized_stock_code:
+    if position is None or position.stock_code != stock_code:
         raise ValueError("보유 종목이 아니거나 미보유 상태입니다")
 
-    stock_context = _build_stock_prompt_context(normalized_stock_code, current_time)
+    stock_context = _build_stock_prompt_context(stock_code, current_time)
     if stock_context is None:
         return None
 
@@ -109,15 +108,14 @@ def execute_buy(
     if get_open_position() is not None:
         raise ValueError("이미 보유 종목이 있어 매수 불가합니다")
 
-    normalized_stock_code = validate_stock_code(stock_code)
     order_total_amount = price * quantity
     executed_at = timezone.now()
 
     with transaction.atomic():
-        apply_virtual_buy(normalized_stock_code, price, quantity)
+        apply_virtual_buy(stock_code, price, quantity)
         return OrderHistory.objects.create(
             decision_history=decision_history,
-            stock_code=normalized_stock_code,
+            stock_code=stock_code,
             order_price=price,
             order_quantity=quantity,
             order_total_amount=order_total_amount,
@@ -139,9 +137,8 @@ def execute_sell(
         raise ValueError("SELL 판단 result가 아니면 매도 주문을 실행할 수 없습니다")
     _validate_positive_order(price=price, quantity=quantity)
 
-    normalized_stock_code = validate_stock_code(stock_code)
     position = get_open_position()
-    if position is None or position.stock_code != normalized_stock_code:
+    if position is None or position.stock_code != stock_code:
         raise ValueError("해당 종목을 보유하고 있지 않은 미보유 상태입니다")
     if quantity > position.quantity:
         raise ValueError("보유 수량을 초과해 매도할 수 없습니다")
@@ -150,10 +147,10 @@ def execute_sell(
     executed_at = timezone.now()
 
     with transaction.atomic():
-        apply_virtual_sell(normalized_stock_code, price, quantity)
+        apply_virtual_sell(stock_code, price, quantity)
         return OrderHistory.objects.create(
             decision_history=decision_history,
-            stock_code=normalized_stock_code,
+            stock_code=stock_code,
             order_price=price,
             order_quantity=quantity,
             order_total_amount=order_total_amount,

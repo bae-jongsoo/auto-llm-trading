@@ -7,11 +7,10 @@ from django.utils.dateparse import parse_datetime
 
 from apps.dart.models import DartDisclosure
 from shared.external.dart_api import fetch_disclosures
-from shared.stock_universe import resolve_target_corp_codes, validate_stock_code
+from shared.stock_universe import resolve_target_corp_codes
 
 
 def upsert_disclosures(stock_code: str, corp_code: str, rows: list[dict]) -> list[DartDisclosure]:
-    normalized_stock_code = validate_stock_code(stock_code)
     saved_disclosures: list[DartDisclosure] = []
 
     with transaction.atomic():
@@ -24,7 +23,7 @@ def upsert_disclosures(stock_code: str, corp_code: str, rows: list[dict]) -> lis
             disclosure, _ = DartDisclosure.objects.update_or_create(
                 external_id=external_id,
                 defaults={
-                    "stock_code": normalized_stock_code,
+                    "stock_code": stock_code,
                     "corp_code": corp_code,
                     "rcept_no": rcept_no,
                     "title": ((row.get("title") or row.get("report_nm") or "").strip()),

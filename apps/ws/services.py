@@ -7,8 +7,6 @@ from zoneinfo import ZoneInfo
 from django.utils import timezone
 from django_redis import get_redis_connection
 
-from shared.stock_universe import validate_stock_code
-
 KST = ZoneInfo("Asia/Seoul")
 TRADE_TICK_KEY_PATTERN = "ws:trade:{stock_code}"
 QUOTE_TICK_KEY_PATTERN = "ws:quote:{stock_code}"
@@ -16,7 +14,6 @@ TICK_RETENTION_HOURS = 1
 
 
 def save_trade_tick(stock_code: str, tick: dict, now: datetime | None = None) -> None:
-    normalized_stock_code = validate_stock_code(stock_code)
     collected_at = _resolve_now(now)
 
     trade_id = _require_text(tick.get("trade_id"), "trade_id")
@@ -33,15 +30,14 @@ def save_trade_tick(stock_code: str, tick: dict, now: datetime | None = None) ->
     }
     redis_client = get_redis_connection("default")
     redis_client.zadd(
-        _trade_tick_key(normalized_stock_code),
+        _trade_tick_key(stock_code),
         {_serialize_payload(payload): collected_at.timestamp()},
         nx=True,
     )
-    trim_ticks(normalized_stock_code, now=collected_at)
+    trim_ticks(stock_code, now=collected_at)
 
 
 def save_quote_tick(stock_code: str, tick: dict, now: datetime | None = None) -> None:
-    normalized_stock_code = validate_stock_code(stock_code)
     collected_at = _resolve_now(now)
 
     quote_time = _require_text(tick.get("quote_time"), "quote_time")
@@ -56,25 +52,23 @@ def save_quote_tick(stock_code: str, tick: dict, now: datetime | None = None) ->
     }
     redis_client = get_redis_connection("default")
     redis_client.zadd(
-        _quote_tick_key(normalized_stock_code),
+        _quote_tick_key(stock_code),
         {_serialize_payload(payload): collected_at.timestamp()},
         nx=True,
     )
-    trim_ticks(normalized_stock_code, now=collected_at)
+    trim_ticks(stock_code, now=collected_at)
 
 
 def trim_ticks(stock_code: str, now: datetime | None = None) -> None:
-    normalized_stock_code = validate_stock_code(stock_code)
     current_time = _resolve_now(now)
     cutoff = (current_time - timedelta(hours=TICK_RETENTION_HOURS)).timestamp()
 
     redis_client = get_redis_connection("default")
-    redis_client.zremrangebyscore(_trade_tick_key(normalized_stock_code), "-inf", cutoff)
-    redis_client.zremrangebyscore(_quote_tick_key(normalized_stock_code), "-inf", cutoff)
+    redis_client.zremrangebyscore(_trade_tick_key(stock_code), "-inf", cutoff)
+    redis_client.zremrangebyscore(_quote_tick_key(stock_code), "-inf", cutoff)
 
 
 def get_recent_price_flow(stock_code: str, minutes: int = 10) -> dict:
-    normalized_stock_code = validate_stock_code(stock_code)
     if minutes <= 0:
         raise ValueError("minutes는 1 이상이어야 합니다")
 
@@ -83,7 +77,7 @@ def get_recent_price_flow(stock_code: str, minutes: int = 10) -> dict:
 
     redis_client = get_redis_connection("default")
     raw_ticks = redis_client.zrangebyscore(
-        _trade_tick_key(normalized_stock_code),
+        _trade_tick_key(stock_code),
         min_collected_at.timestamp(),
         "+inf",
         withscores=True,
@@ -107,7 +101,7 @@ def get_recent_price_flow(stock_code: str, minutes: int = 10) -> dict:
 
     price_flow.sort(key=lambda item: item["collected_at"])
     return {
-        "stock_code": normalized_stock_code,
+        "stock_code": stock_code,
         "collected_at": collected_at.isoformat(),
         "price_flow": price_flow,
     }
