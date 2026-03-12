@@ -93,6 +93,8 @@ def collect_news(stock_codes: list[str] | None = None, limit: int = 10) -> dict:
         saved_items_count += len(saved_items)
 
         for news in saved_items:
+            if news.summary:
+                continue
             summarize_news(news)
             summarized_items_count += 1
 
