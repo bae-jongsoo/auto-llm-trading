@@ -34,14 +34,17 @@ DECISION_ALLOWED_RESULTS = {
 }
 
 
-def build_buy_prompt(now: datetime | None = None) -> str:
+def build_buy_prompt(now: datetime | None = None) -> str | None:
     current_time = _resolve_now(now)
     cash = get_cash_asset()
 
     stock_contexts = [
-        _build_stock_prompt_context(stock_code, current_time)
-        for stock_code in TARGET_STOCKS.keys()
+        ctx for stock_code in TARGET_STOCKS.keys()
+        if (ctx := _build_stock_prompt_context(stock_code, current_time)) is not None
     ]
+
+    if not stock_contexts:
+        return None
 
     return _render_prompt(
         mode="BUY_OR_HOLD",
@@ -51,7 +54,7 @@ def build_buy_prompt(now: datetime | None = None) -> str:
     )
 
 
-def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str:
+def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str | None:
     normalized_stock_code = validate_stock_code(stock_code)
     current_time = _resolve_now(now)
     cash = get_cash_asset()
@@ -60,6 +63,9 @@ def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str:
         raise ValueError("보유 종목이 아니거나 미보유 상태입니다")
 
     stock_context = _build_stock_prompt_context(normalized_stock_code, current_time)
+    if stock_context is None:
+        return None
+
     return _render_prompt(
         mode="SELL_OR_HOLD",
         current_time=current_time,
@@ -175,6 +181,17 @@ def run_trading_cycle(now: datetime | None = None) -> DecisionHistory:
         else:
             request_payload = build_sell_prompt(position.stock_code, now=current_time)
 
+        if request_payload is None:
+            processing_time_ms = int((time.monotonic() - started_at) * 1000)
+            return record_decision_history(
+                request_payload="",
+                response_payload="",
+                parsed_decision=parsed_decision,
+                processing_time_ms=processing_time_ms,
+                is_error=False,
+                error_message=None,
+            )
+
         response_payload = ask_llm(request_payload)
         parsed_payload = parse_llm_json_object(response_payload)
         normalized_decision = normalize_trade_decision(parsed_payload)
@@ -222,7 +239,7 @@ def run_trading_cycle(now: datetime | None = None) -> DecisionHistory:
     return decision_history
 
 
-def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict:
+def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict | None:
     market_snapshot = (
         MarketSnapshot.objects
         .filter(stock_code=stock_code)
@@ -245,7 +262,7 @@ def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict:
     price_flow = get_recent_price_flow(stock_code, minutes=10)
 
     if market_snapshot is None or not disclosures or not news_items or not price_flow["price_flow"]:
-        raise ValueError(f"프롬프트 컨텍스트 누락: 뉴스/공시/시세 ({stock_code})")
+        return None
 
     return {
         "stock_code": stock_code,

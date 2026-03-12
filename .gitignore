@@ -37,3 +37,4 @@ Thumbs.db
 .aider*
 # Environment
 .env
+docs_cache

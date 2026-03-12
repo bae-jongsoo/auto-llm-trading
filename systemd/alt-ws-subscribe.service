@@ -1,0 +1,14 @@
+[Unit]
+Description=ALT 웹소켓 시세 구독
+After=network.target redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__VENV_PYTHON__ __PROJECT_DIR__/manage.py ws_subscribe
+EnvironmentFile=__PROJECT_DIR__/.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

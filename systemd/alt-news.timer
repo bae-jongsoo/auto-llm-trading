@@ -1,0 +1,9 @@
+[Unit]
+Description=ALT 뉴스 수집 타이머 (5분)
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target

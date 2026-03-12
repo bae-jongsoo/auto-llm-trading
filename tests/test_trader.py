@@ -275,13 +275,13 @@ def test_매수프롬프트_최근7일_공시만_포함():
 
 
 @pytest.mark.django_db
-def test_매수프롬프트_컨텍스트_일부누락_실패():
+def test_매수프롬프트_컨텍스트_일부누락_HOLD_반환():
     now = timezone.now().replace(microsecond=0)
     _현금_생성(Decimal("1000000.00"))
     _시장정보_생성("005930", published_at=now)
 
-    with pytest.raises(ValueError, match="컨텍스트|누락|뉴스|공시|시세"):
-        build_buy_prompt(now=now)
+    result = build_buy_prompt(now=now)
+    assert result is None
 
 
 # ──────────────────────────────────────
@@ -372,13 +372,13 @@ def test_매도프롬프트_미보유_종목코드_실패():
 
 
 @pytest.mark.django_db
-def test_매도프롬프트_컨텍스트_일부누락_실패():
+def test_매도프롬프트_컨텍스트_일부누락_HOLD_반환():
     now = timezone.now().replace(microsecond=0)
     _현금_생성(Decimal("790000.00"))
     _보유종목_생성(stock_code="005930", quantity=3, unit_price=Decimal("70000.00"))
 
-    with pytest.raises(ValueError, match="컨텍스트|누락|뉴스|공시|시세"):
-        build_sell_prompt("005930", now=now)
+    result = build_sell_prompt("005930", now=now)
+    assert result is None
 
 
 # ──────────────────────────────────────

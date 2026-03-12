@@ -1,0 +1,14 @@
+[Unit]
+Description=ALT 트레이더 (1회 판단 반복)
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__VENV_PYTHON__ __PROJECT_DIR__/manage.py run_trader_once
+EnvironmentFile=__PROJECT_DIR__/.env
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

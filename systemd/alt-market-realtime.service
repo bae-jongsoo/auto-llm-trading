@@ -1,0 +1,9 @@
+[Unit]
+Description=ALT 종목 현재정보 수집
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__VENV_PYTHON__ __PROJECT_DIR__/manage.py collect_market_snapshot
+EnvironmentFile=__PROJECT_DIR__/.env

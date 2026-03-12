@@ -1,0 +1,10 @@
+[Unit]
+Description=ALT 종목 현재정보 수집 타이머 (평일 09:00-15:30 매분)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09..14:*:00
+OnCalendar=Mon..Fri *-*-* 15:00..30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
