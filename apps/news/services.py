@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from email.utils import parsedate_to_datetime
 
 from django.db import transaction
@@ -11,6 +12,8 @@ from shared.external.naver_news import fetch_news
 from shared.external.web_content import extract_article_text
 from shared.stock_universe import resolve_stock_codes
 from shared.utils.json_helpers import parse_llm_json_object
+
+logger = logging.getLogger(__name__)
 
 NEWS_SUMMARY_PROMPT_TEMPLATE = """아래는 뉴스 본문이다. 이걸 요약하고 주식 단타에 도움이 되는지 판단 후,
 {{"summary": "...", "useful": true}} 형태로 응답 해달라.
@@ -95,8 +98,12 @@ def collect_news(stock_codes: list[str] | None = None, limit: int = 10) -> dict:
         for news in saved_items:
             if news.summary:
                 continue
-            summarize_news(news)
-            summarized_items_count += 1
+            try:
+                summarize_news(news)
+                summarized_items_count += 1
+            except Exception:
+                logger.exception("뉴스 요약 실패 news_id=%s", news.id)
+                continue
 
     return {
         "stock_codes": target_stock_codes,

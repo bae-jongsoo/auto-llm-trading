@@ -7,6 +7,10 @@ def parse_llm_json_object(raw_text: str) -> dict:
     if not text:
         raise ValueError("빈 응답입니다")
 
+    json_start = text.find("{")
+    if json_start > 0:
+        text = text[json_start:]
+
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
