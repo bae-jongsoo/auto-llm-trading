@@ -151,22 +151,6 @@ def test_가상매수_동일종목_추가매수_성공():
 
 
 @pytest.mark.django_db
-def test_가상매수_가격이_0이하이면_실패():
-    _현금_생성(Decimal("1000000.00"))
-
-    with pytest.raises(ValueError):
-        apply_virtual_buy("005930", Decimal("0"), 1)
-
-
-@pytest.mark.django_db
-def test_가상매수_수량이_0이하이면_실패():
-    _현금_생성(Decimal("1000000.00"))
-
-    with pytest.raises(ValueError):
-        apply_virtual_buy("005930", Decimal("70000.00"), 0)
-
-
-@pytest.mark.django_db
 def test_가상매수_현금부족이면_실패():
     _현금_생성(Decimal("10000.00"))
 
@@ -227,24 +211,6 @@ def test_가상매도_전량매도면_보유row_삭제():
     cash = Asset.objects.get(stock_code__isnull=True)
     assert cash.quantity == 1
     assert cash.unit_price == cash.total_amount
-
-
-@pytest.mark.django_db
-def test_가상매도_가격이_0이하이면_실패():
-    _현금_생성(Decimal("1000000.00"))
-    _보유종목_생성("005930", quantity=3, unit_price=Decimal("70000.00"))
-
-    with pytest.raises(ValueError):
-        apply_virtual_sell("005930", Decimal("-1"), 1)
-
-
-@pytest.mark.django_db
-def test_가상매도_수량이_0이하이면_실패():
-    _현금_생성(Decimal("1000000.00"))
-    _보유종목_생성("005930", quantity=3, unit_price=Decimal("70000.00"))
-
-    with pytest.raises(ValueError):
-        apply_virtual_sell("005930", Decimal("70000.00"), 0)
 
 
 @pytest.mark.django_db

@@ -1,5 +1,5 @@
 from django.db import models
-from shared.stock_universe import STOCK_NAMES
+from shared.stock_universe import TARGET_STOCKS
 
 
 class StockNamedMixin:
@@ -8,7 +8,7 @@ class StockNamedMixin:
         stock_code = getattr(self, "stock_code", "")
         if not stock_code:
             return ""
-        return STOCK_NAMES.get(stock_code, "")
+        return TARGET_STOCKS.get(stock_code, "")
 
 
 class CollectedRecord(StockNamedMixin, models.Model):

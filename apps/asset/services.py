@@ -5,13 +5,6 @@ from django.db import transaction
 from apps.asset.models import Asset
 
 
-def _validate_positive_order(price: Decimal, quantity: int) -> None:
-    if price <= 0:
-        raise ValueError("가격은 0보다 커야 합니다")
-    if quantity <= 0:
-        raise ValueError("수량은 0보다 커야 합니다")
-
-
 def get_cash_asset() -> Asset:
     cash_assets = list(Asset.objects.filter(stock_code__isnull=True))
     if len(cash_assets) != 1:
@@ -35,7 +28,6 @@ def get_open_position() -> Asset | None:
 
 
 def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[Asset, Asset]:
-    _validate_positive_order(price=price, quantity=quantity)
     buy_amount = price * quantity
 
     with transaction.atomic():
@@ -70,7 +62,6 @@ def apply_virtual_buy(stock_code: str, price: Decimal, quantity: int) -> tuple[A
 
 
 def apply_virtual_sell(stock_code: str, price: Decimal, quantity: int) -> tuple[Asset, Asset]:
-    _validate_positive_order(price=price, quantity=quantity)
     sell_amount = price * quantity
 
     with transaction.atomic():

@@ -25,7 +25,6 @@ class KisClient:
     """PyKis를 내포하여 토큰 관리 / REST API / WebSocket 구독을 통합 제공."""
 
     def __init__(self, *, use_websocket: bool = False):
-        _validate_required_settings()
         self._kis = PyKis(
             id=settings.KIS_HTS_ID,
             appkey=settings.KIS_APP_KEY,
@@ -148,21 +147,3 @@ class KisClient:
             "ask_price": int(response.asks[0].price),
             "bid_price": int(response.bids[0].price),
         }
-
-
-def _validate_required_settings() -> None:
-    missing_keys = [
-        key
-        for key, value in {
-            "KIS_APP_KEY": settings.KIS_APP_KEY,
-            "KIS_APP_SECRET": settings.KIS_APP_SECRET,
-            "KIS_HTS_ID": settings.KIS_HTS_ID,
-            "KIS_ACCT_STOCK": settings.KIS_ACCT_STOCK,
-            "KIS_PROD_TYPE": settings.KIS_PROD_TYPE,
-        }.items()
-        if not value
-    ]
-    if missing_keys:
-        raise RuntimeError(
-            "KIS 설정값 누락: {}".format(", ".join(missing_keys))
-        )

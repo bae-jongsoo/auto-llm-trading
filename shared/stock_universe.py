@@ -26,9 +26,6 @@ TARGET_CORP_CODES = {
     "034020": "00159616",
 }
 
-STOCK_NAMES = TARGET_STOCKS
-
-
 def validate_stock_code(stock_code: str) -> str:
     normalized = stock_code.strip()
     if not normalized:
