@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import logging
+from datetime import time
+from zoneinfo import ZoneInfo
+
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from apps.market import services
 from shared.stock_universe import validate_stock_code
+
+logger = logging.getLogger(__name__)
+
+KST = ZoneInfo("Asia/Seoul")
+MARKET_OPEN = time(8, 58)
+MARKET_CLOSE = time(15, 32)
 
 
 class Command(BaseCommand):
@@ -18,6 +29,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        now_kst = timezone.now().astimezone(KST)
+        if not (MARKET_OPEN <= now_kst.time() <= MARKET_CLOSE):
+            return
         raw_stock_codes = (options.get("stock_codes") or "").strip()
         stock_codes = (
             [code.strip() for code in raw_stock_codes.split(",") if code.strip()]
@@ -34,9 +48,9 @@ class Command(BaseCommand):
 
         result = services.collect_market_snapshots(stock_codes=stock_codes)
 
-        self.stdout.write("종목 현재정보 수집 완료")
-        self.stdout.write(
-            "종목={stock_codes} fetched={fetched_items} saved={saved_items}".format(
-                **result
-            )
+        logger.info(
+            "종목 현재정보 수집 완료 종목=%s fetched=%s saved=%s",
+            result["stock_codes"],
+            result["fetched_items"],
+            result["saved_items"],
         )

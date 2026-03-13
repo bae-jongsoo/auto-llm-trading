@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import time
 from zoneinfo import ZoneInfo
 
@@ -8,8 +9,10 @@ from django.utils import timezone
 
 from apps.trader.services import run_trading_cycle
 
+logger = logging.getLogger(__name__)
+
 KST = ZoneInfo("Asia/Seoul")
-MARKET_OPEN = time(9, 0)
+MARKET_OPEN = time(9, 11)
 MARKET_CLOSE = time(15, 30)
 
 
@@ -23,11 +26,9 @@ class Command(BaseCommand):
 
         decision = run_trading_cycle()
 
-        self.stdout.write("트레이딩 1회 실행 완료")
-        self.stdout.write(
-            "result={result} is_error={is_error} decision_history_id={id}".format(
-                result=decision.result,
-                is_error=decision.is_error,
-                id=decision.id,
-            )
+        logger.info(
+            "트레이딩 1회 실행 완료 result=%s is_error=%s decision_history_id=%s",
+            decision.result,
+            decision.is_error,
+            decision.id,
         )

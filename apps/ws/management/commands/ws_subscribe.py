@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from django.core.management.base import BaseCommand
 
 from apps.ws.services import save_quote_tick, save_trade_tick
 from shared.external.kis import KisClient
 from shared.stock_universe import TARGET_STOCKS
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -13,7 +17,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         stock_codes = list(TARGET_STOCKS.keys())
 
-        self.stdout.write(f"ws 구독 시작 종목수={len(stock_codes)}")
+        logger.info("ws 구독 시작 종목수=%s", len(stock_codes))
 
         client = KisClient(use_websocket=True)
         client.subscribe_realtime(

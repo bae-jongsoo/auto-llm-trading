@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.news import services
 from shared.stock_universe import validate_stock_code
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -41,9 +45,10 @@ class Command(BaseCommand):
 
         result = services.collect_news(stock_codes=stock_codes, limit=limit)
 
-        self.stdout.write("뉴스 수집 완료")
-        self.stdout.write(
-            "종목={stock_codes} fetched={fetched_items} saved={saved_items} summarized={summarized_items}".format(
-                **result
-            )
+        logger.info(
+            "뉴스 수집 완료 종목=%s fetched=%s saved=%s summarized=%s",
+            result["stock_codes"],
+            result["fetched_items"],
+            result["saved_items"],
+            result["summarized_items"],
         )

@@ -104,5 +104,33 @@ KIS_HTS_ID = os.getenv("KIS_HTS_ID", "")
 KIS_ACCT_STOCK = os.getenv("KIS_ACCT_STOCK", "")
 KIS_PROD_TYPE = os.getenv("KIS_PROD_TYPE", "")
 
+# Logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stdout",
+        },
+        "stderr": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stderr",
+            "level": "ERROR",
+        },
+    },
+    "root": {
+        "handlers": ["stdout", "stderr"],
+        "level": "INFO",
+    },
+}
+
 # LLM
 NANOBOT_BIN = os.getenv("NANOBOT_BIN", "nanobot")
