@@ -256,9 +256,9 @@ def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict | None:
         .filter(Q(useful=True) | Q(useful__isnull=True))
         .order_by("-published_at", "-created_at")[:10]
     )
-    price_flow = get_recent_price_flow(stock_code, minutes=10)
+    price_flow = get_recent_price_flow(stock_code, minutes=2)
 
-    if market_snapshot is None or not disclosures or not news_items or not price_flow["price_flow"]:
+    if market_snapshot is None or not price_flow["price_flow"]:
         return None
 
     return {
@@ -308,7 +308,20 @@ def _render_prompt(
         f"현재 시각은 {current_time.isoformat()}입니다.\n"
         f"현재 우리는 {cash_amount}원의 자산을 가지고 있습니다.\n"
         "아래 데이터(뉴스/공시/시장정보/가격흐름)와 각 collected_at을 참고해 단타 관점으로 판단하세요.\n"
-        "응답은 JSON object로 주세요.\n\n"
+        "응답은 반드시 아래 JSON 형식으로 주세요:\n"
+        "{\n"
+        '  "analysis": [\n'
+        '    {"stock_code": "종목코드", "stock_name": "종목명", "reason": "해당 종목 판단 이유", "confidence": 0.0~1.0}\n'
+        "  ],\n"
+        '  "decision": {\n'
+        '    "result": "BUY 또는 SELL 또는 HOLD",\n'
+        '    "confidence": 0.0~1.0 (BUY/SELL일 때 확신도, HOLD면 반드시 0),\n'
+        '    "stock_code": "종목코드 (BUY/SELL일 때만)",\n'
+        '    "price": 가격 (BUY/SELL일 때만),\n'
+        '    "quantity": 수량 (BUY/SELL일 때만)\n'
+        "  }\n"
+        "}\n"
+        "주의: analysis에는 제공된 모든 종목을 빠짐없이 포함하세요.\n\n"
         "<주식정보>\n"
         f"{json.dumps(prompt_payload, ensure_ascii=False, default=_json_default, indent=2)}"
     )

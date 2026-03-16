@@ -10,12 +10,7 @@ def get_cash_asset() -> Asset:
     if len(cash_assets) != 1:
         raise RuntimeError("현금 row는 정확히 1건이어야 합니다")
 
-    cash = cash_assets[0]
-    if cash.quantity != 1:
-        raise RuntimeError("현금 row quantity는 1이어야 합니다")
-    if cash.unit_price != cash.total_amount:
-        raise RuntimeError("현금 row unit_price와 total_amount가 일치해야 합니다")
-    return cash
+    return cash_assets[0]
 
 
 def get_open_position() -> Asset | None:

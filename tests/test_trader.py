@@ -180,7 +180,7 @@ def _매수_컨텍스트_생성(now: datetime) -> None:
             useful=None,
             published_at=now - timedelta(hours=2),
         )
-        _체결틱_저장(stock_code, price=70000 + index, now=now - timedelta(minutes=5))
+        _체결틱_저장(stock_code, price=70000 + index, now=now - timedelta(minutes=1))
 
 
 def _매도_컨텍스트_생성(now: datetime, stock_code: str = "005930") -> None:
@@ -189,7 +189,7 @@ def _매도_컨텍스트_생성(now: datetime, stock_code: str = "005930") -> No
     _시장정보_생성(stock_code, published_at=now - timedelta(minutes=1))
     _공시_생성(stock_code, index=1, published_at=now - timedelta(days=1))
     _뉴스_생성(stock_code, index=1, useful=True, published_at=now - timedelta(hours=1))
-    _체결틱_저장(stock_code, price=71000, now=now - timedelta(minutes=3))
+    _체결틱_저장(stock_code, price=71000, now=now - timedelta(minutes=1))
 
 
 def _판단이력_생성(result: str = DecisionHistory.Result.HOLD) -> DecisionHistory:
@@ -275,13 +275,15 @@ def test_매수프롬프트_최근7일_공시만_포함():
 
 
 @pytest.mark.django_db
-def test_매수프롬프트_컨텍스트_일부누락_HOLD_반환():
+def test_매수프롬프트_시장정보만_있어도_생성():
     now = timezone.now().replace(microsecond=0)
     _현금_생성(Decimal("1000000.00"))
     _시장정보_생성("005930", published_at=now)
+    _체결틱_저장("005930", price=70000, now=now - timedelta(minutes=1))
 
     result = build_buy_prompt(now=now)
-    assert result is None
+    assert result is not None
+    assert "005930" in result
 
 
 # ──────────────────────────────────────

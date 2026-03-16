@@ -12,7 +12,7 @@ def parse_llm_json_object(raw_text: str) -> dict:
         text = text[json_start:]
 
     try:
-        payload = json.loads(text)
+        payload = json.loads(text, strict=False)
     except json.JSONDecodeError as exc:
         raise ValueError("JSON 파싱 실패") from exc
 

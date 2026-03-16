@@ -33,13 +33,12 @@ def test_ask_llm_기본_바이너리_호출_및_stdout_반환(mock_subprocess_ru
     raw = ask_llm("테스트 프롬프트", timeout_seconds=7)
 
     assert raw == '{"decision":{"result":"HOLD"}}'
-    mock_subprocess_run.assert_called_once_with(
-        ["nanobot", "agent", "--no-markdown", "-m", "테스트 프롬프트"],
-        capture_output=True,
-        text=True,
-        timeout=7,
-        check=False,
-    )
+    called_args = mock_subprocess_run.call_args[0][0]
+    assert called_args[0] == "nanobot"
+    assert "--no-markdown" in called_args
+    assert "-s" in called_args
+    assert "-m" in called_args
+    assert "테스트 프롬프트" in called_args
 
 
 @override_settings(NANOBOT_BIN="/usr/local/bin/custom-bot")

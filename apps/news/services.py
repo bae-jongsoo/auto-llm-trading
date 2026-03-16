@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.news.models import News
-from shared.external.llm import ask_llm
+from shared.external.llm import LLMAuthError, ask_llm
 from shared.external.naver_news import fetch_news
 from shared.external.web_content import extract_article_text
 from shared.stock_universe import resolve_stock_codes
@@ -101,6 +101,15 @@ def collect_news(stock_codes: list[str] | None = None, limit: int = 10) -> dict:
             try:
                 summarize_news(news)
                 summarized_items_count += 1
+            except LLMAuthError:
+                logger.error("LLM 인증 실패, 요약 중단")
+                return {
+                    "stock_codes": target_stock_codes,
+                    "fetched_items": fetched_items_count,
+                    "saved_items": saved_items_count,
+                    "summarized_items": summarized_items_count,
+                    "error": "LLM 인증 실패",
+                }
             except Exception:
                 logger.exception("뉴스 요약 실패 news_id=%s", news.id)
                 continue
