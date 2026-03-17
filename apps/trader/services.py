@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -21,10 +22,12 @@ from apps.market.models import MarketSnapshot
 from apps.market.services import to_prompt_fields
 from apps.news.models import News
 from apps.trader.models import DecisionHistory, OrderHistory
-from apps.ws.services import get_recent_price_flow
+from apps.ws.services import build_candles
 from shared.external.llm import ask_llm
 from shared.stock_universe import TARGET_STOCKS
 from shared.utils.json_helpers import normalize_trade_decision, parse_llm_json_object
+
+logger = logging.getLogger(__name__)
 
 KST = ZoneInfo("Asia/Seoul")
 DECISION_ALLOWED_RESULTS = {
@@ -253,9 +256,13 @@ def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict | None:
         .filter(Q(useful=True) | Q(useful__isnull=True))
         .order_by("-published_at", "-created_at")[:10]
     )
-    price_flow = get_recent_price_flow(stock_code, minutes=2)
+    candles = build_candles(stock_code, minutes=30)
 
-    if market_snapshot is None or not price_flow["price_flow"]:
+    if market_snapshot is None:
+        logger.warning("시장 스냅샷 없음 stock_code=%s", stock_code)
+        return None
+    if not candles:
+        logger.warning("분봉 데이터 없음 stock_code=%s", stock_code)
         return None
 
     return {
@@ -284,7 +291,17 @@ def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict | None:
             }
             for one in news_items
         ],
-        "price_flow": price_flow,
+        "candles": [
+            {
+                "minute_at": _to_iso(c.minute_at),
+                "open": c.open,
+                "high": c.high,
+                "low": c.low,
+                "close": c.close,
+                "volume": c.volume,
+            }
+            for c in candles
+        ],
     }
 
 

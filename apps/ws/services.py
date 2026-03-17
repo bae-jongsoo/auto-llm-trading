@@ -68,9 +68,8 @@ def trim_ticks(stock_code: str, now: datetime | None = None) -> None:
     redis_client.zremrangebyscore(_quote_tick_key(stock_code), "-inf", cutoff)
 
 
-def get_recent_price_flow(stock_code: str, minutes: int = 10) -> dict:
-    if minutes <= 0:
-        raise ValueError("minutes는 1 이상이어야 합니다")
+def build_candles(stock_code: str, minutes: int = 30) -> list:
+    from apps.ws.models import MinuteCandle
 
     collected_at = _resolve_now(None)
     min_collected_at = collected_at - timedelta(minutes=minutes)
@@ -83,28 +82,41 @@ def get_recent_price_flow(stock_code: str, minutes: int = 10) -> dict:
         withscores=True,
     )
 
-    price_flow = []
+    # Group ticks by minute
+    buckets: dict[datetime, list[tuple[int, int]]] = {}
     for raw_member, score in raw_ticks:
         try:
             payload = json.loads(_decode_member(raw_member))
-        except json.JSONDecodeError as exc:
-            raise ValueError("메시지 JSON 파싱 실패") from exc
+        except json.JSONDecodeError:
+            continue
 
-        price = _require_int(payload.get("price"), "price")
-        tick_collected_at = datetime.fromtimestamp(float(score), tz=KST)
-        price_flow.append(
-            {
-                "price": price,
-                "collected_at": tick_collected_at.isoformat(),
-            }
+        price = int(payload["price"])
+        volume = int(payload["volume"])
+        tick_time = datetime.fromtimestamp(float(score), tz=KST)
+        minute_at = tick_time.replace(second=0, microsecond=0)
+        buckets.setdefault(minute_at, []).append((price, volume))
+
+    # Build candles and upsert to DB
+    candles = []
+    for minute_at in sorted(buckets):
+        ticks = buckets[minute_at]
+        prices = [t[0] for t in ticks]
+        volumes = [t[1] for t in ticks]
+
+        candle, _ = MinuteCandle.objects.update_or_create(
+            stock_code=stock_code,
+            minute_at=minute_at,
+            defaults={
+                "open": prices[0],
+                "high": max(prices),
+                "low": min(prices),
+                "close": prices[-1],
+                "volume": sum(volumes),
+            },
         )
+        candles.append(candle)
 
-    price_flow.sort(key=lambda item: item["collected_at"])
-    return {
-        "stock_code": stock_code,
-        "collected_at": collected_at.isoformat(),
-        "price_flow": price_flow,
-    }
+    return candles
 
 
 def _trade_tick_key(stock_code: str) -> str:
