@@ -84,7 +84,7 @@ class KisClient:
         self,
         stock_codes: list[str],
         on_trade: Callable[[str, dict], None],
-        on_orderbook: Callable[[str, dict], None],
+        on_orderbook: Callable[[str, dict], None] | None = None,
     ) -> None:
         """KIS WebSocket 구독 시작. SIGTERM/SIGINT 까지 블로킹."""
         stop = Event()
@@ -113,7 +113,8 @@ class KisClient:
         for code in stock_codes:
             stock = self._kis.stock(symbol=code, market="KRX")
             tickets.append(stock.on(event="price", callback=_on_price))
-            tickets.append(stock.on(event="orderbook", callback=_on_orderbook))
+            if on_orderbook is not None:
+                tickets.append(stock.on(event="orderbook", callback=_on_orderbook))
 
         logger.info("ws 구독 시작 종목수=%d", len(stock_codes))
 
