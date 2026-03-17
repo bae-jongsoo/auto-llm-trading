@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -24,6 +25,7 @@ from apps.news.models import News
 from apps.trader.models import DecisionHistory, OrderHistory
 from apps.ws.services import build_candles
 from shared.external.llm import ask_llm
+from shared.external.telegram import send_message as send_telegram
 from shared.stock_universe import TARGET_STOCKS
 from shared.utils.json_helpers import normalize_trade_decision, parse_llm_json_object
 
@@ -215,6 +217,11 @@ def run_trading_cycle(now: datetime | None = None) -> DecisionHistory:
         is_error=is_error,
         error_message=error_message,
     )
+
+    if not request_payload:
+        _alert_telegram(f"[트레이더] 데이터 수집 이상 - 프롬프트 생성 실패 (id={decision_history.id})")
+    elif not response_payload:
+        _alert_telegram(f"[트레이더] LLM 응답 없음 (id={decision_history.id}, error={error_message})")
 
     decision = parsed_decision.get("decision", {})
     result = decision.get("result")
@@ -410,6 +417,13 @@ def _extract_result(parsed_decision: dict) -> str:
 def _validate_positive_order(price: Decimal, quantity: int) -> None:
     if price <= 0 or quantity <= 0:
         raise ValueError("가격과 수량은 0보다 큰 양수여야 합니다")
+
+
+def _alert_telegram(message: str) -> None:
+    try:
+        send_telegram(settings.TELEGRAM_DEFAULT_CHAT_ID, message)
+    except Exception:
+        logger.exception("텔레그램 알림 발송 실패")
 
 
 def _has_invalid_result(payload: dict) -> bool:

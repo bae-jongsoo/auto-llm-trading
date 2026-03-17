@@ -29,7 +29,8 @@ from shared.stock_universe import TARGET_CORP_CODES, TARGET_STOCKS
 @pytest.fixture
 def mock_llm():
     """LLM 호출을 mock한다. 외부 경계 mock 패턴."""
-    with patch("shared.external.llm.subprocess.run") as mock_run:
+    with patch("shared.external.llm.subprocess.run") as mock_run, \
+         patch("apps.trader.services.send_telegram"):
         yield mock_run
 
 
