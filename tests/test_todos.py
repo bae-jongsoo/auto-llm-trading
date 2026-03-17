@@ -125,7 +125,7 @@ def test_상태변경_TODO에서_IN_PROGRESS():
 
 
 @pytest.mark.django_db
-def test_상태변경_IN_PROGRESS에서_DONE():
+def test_상태변경_IN_PROGRESS에서_DONE(mock_telegram):
     todo = create_todo(title="테스트")
     change_status(todo.id, Todo.Status.IN_PROGRESS)
     updated = change_status(todo.id, Todo.Status.DONE)
@@ -140,7 +140,7 @@ def test_상태변경_TODO에서_DONE_불가():
 
 
 @pytest.mark.django_db
-def test_상태변경_DONE에서_변경_불가():
+def test_상태변경_DONE에서_변경_불가(mock_telegram):
     todo = create_todo(title="테스트")
     change_status(todo.id, Todo.Status.IN_PROGRESS)
     change_status(todo.id, Todo.Status.DONE)
