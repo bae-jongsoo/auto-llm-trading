@@ -46,8 +46,7 @@ def build_buy_prompt(now: datetime | None = None) -> str | None:
     if not stock_contexts:
         return None
 
-    return _render_prompt(
-        mode="BUY_OR_HOLD",
+    return _render_buy_prompt(
         current_time=current_time,
         cash_amount=cash.total_amount,
         stock_contexts=stock_contexts,
@@ -56,7 +55,6 @@ def build_buy_prompt(now: datetime | None = None) -> str | None:
 
 def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str | None:
     current_time = _resolve_now(now)
-    cash = get_cash_asset()
     position = get_open_position()
     if position is None or position.stock_code != stock_code:
         raise ValueError("보유 종목이 아니거나 미보유 상태입니다")
@@ -65,11 +63,10 @@ def build_sell_prompt(stock_code: str, now: datetime | None = None) -> str | Non
     if stock_context is None:
         return None
 
-    return _render_prompt(
-        mode="SELL_OR_HOLD",
+    return _render_sell_prompt(
         current_time=current_time,
-        cash_amount=cash.total_amount,
-        stock_contexts=[stock_context],
+        position=position,
+        stock_context=stock_context,
     )
 
 
@@ -291,14 +288,12 @@ def _build_stock_prompt_context(stock_code: str, now: datetime) -> dict | None:
     }
 
 
-def _render_prompt(
-    mode: str,
+def _render_buy_prompt(
     current_time: datetime,
     cash_amount: Decimal,
     stock_contexts: list[dict],
 ) -> str:
     prompt_payload = {
-        "mode": mode,
         "current_time": current_time,
         "cash_amount": cash_amount,
         "stocks": stock_contexts,
@@ -306,19 +301,20 @@ def _render_prompt(
 
     return (
         f"현재 시각은 {current_time.isoformat()}입니다.\n"
-        f"현재 우리는 {cash_amount}원의 자산을 가지고 있습니다.\n"
-        "아래 데이터(뉴스/공시/시장정보/가격흐름)와 각 collected_at을 참고해 단타 관점으로 판단하세요.\n"
+        f"보유 현금: {cash_amount}원\n"
+        "아래 종목 데이터를 보고, 단타 매수할 종목이 있는지 판단하세요.\n"
+        "매수하려면 BUY, 관망하려면 HOLD로 응답하세요.\n\n"
         "Respond in the following JSON format:\n"
         "{\n"
         '  "analysis": [\n'
         '    {"stock_code": "6-digit code", "stock_name": "name", "reason": "string", "confidence": 0.0 to 1.0}\n'
         "  ],\n"
         '  "decision": {\n'
-        '    "result": "BUY" or "SELL" or "HOLD",\n'
+        '    "result": "BUY" or "HOLD",\n'
         '    "confidence": 0.0 to 1.0 (must be 0 when HOLD),\n'
-        '    "stock_code": "6-digit code (required for BUY/SELL, must match one from analysis)",\n'
-        '    "price": integer (required for BUY/SELL),\n'
-        '    "quantity": integer (required for BUY/SELL)\n'
+        '    "stock_code": "6-digit code (required for BUY, must match one from analysis)",\n'
+        '    "price": integer (required for BUY),\n'
+        '    "quantity": integer (required for BUY)\n'
         "  }\n"
         "}\n"
         "Rules:\n"
@@ -326,6 +322,40 @@ def _render_prompt(
         "- decision.stock_code must be a valid 6-digit stock code from the data, never null.\n\n"
         "<주식정보>\n"
         f"{json.dumps(prompt_payload, ensure_ascii=False, default=_json_default, indent=2)}"
+    )
+
+
+def _render_sell_prompt(
+    current_time: datetime,
+    position,
+    stock_context: dict,
+) -> str:
+    stock_name = TARGET_STOCKS.get(position.stock_code, "")
+
+    return (
+        f"현재 시각은 {current_time.isoformat()}입니다.\n"
+        f"현재 {stock_name}({position.stock_code})을 {position.quantity}주 보유 중입니다.\n"
+        f"매수 단가: {position.unit_price}원, 총 매수금액: {position.total_amount}원\n"
+        "아래 데이터를 보고, 지금 매도할지 계속 보유할지 판단하세요.\n"
+        "매도하려면 SELL, 계속 보유하려면 HOLD로 응답하세요.\n\n"
+        "Respond in the following JSON format:\n"
+        "{\n"
+        '  "analysis": [\n'
+        '    {"stock_code": "6-digit code", "stock_name": "name", "reason": "string", "confidence": 0.0 to 1.0}\n'
+        "  ],\n"
+        '  "decision": {\n'
+        '    "result": "SELL" or "HOLD",\n'
+        '    "confidence": 0.0 to 1.0 (must be 0 when HOLD),\n'
+        f'    "stock_code": "{position.stock_code}",\n'
+        '    "price": integer (required for SELL),\n'
+        '    "quantity": integer (required for SELL, max ' + str(position.quantity) + ')\n'
+        "  }\n"
+        "}\n"
+        "Rules:\n"
+        "- decision.stock_code must be \"" + position.stock_code + "\".\n"
+        "- decision.quantity must not exceed " + str(position.quantity) + ".\n\n"
+        "<주식정보>\n"
+        f"{json.dumps(stock_context, ensure_ascii=False, default=_json_default, indent=2)}"
     )
 
 

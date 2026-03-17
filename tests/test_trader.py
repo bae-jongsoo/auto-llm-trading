@@ -315,8 +315,10 @@ def test_매도프롬프트_필수컨텍스트_시각자산시세시장공시뉴
     prompt = build_sell_prompt("005930", now=now)
 
     assert now.strftime("%Y-%m-%d") in prompt
-    assert "790000" in prompt
-    assert "71000" in prompt
+    assert "70000" in prompt  # 매수 단가
+    assert "210000" in prompt  # 총 매수금액 (70000 * 3)
+    assert "3주" in prompt  # 보유 수량
+    assert "71000" in prompt  # 체결 틱 가격
     assert "공시-005930-1" in prompt
     assert "뉴스-005930-1" in prompt
     assert "collected_at" in prompt
