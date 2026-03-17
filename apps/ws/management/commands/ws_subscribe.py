@@ -4,7 +4,7 @@ import logging
 
 from django.core.management.base import BaseCommand
 
-from apps.ws.services import save_quote_tick, save_trade_tick
+from apps.ws.services import save_trade_tick
 from shared.external.kis import KisClient
 from shared.stock_universe import TARGET_STOCKS
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = "KIS 웹소켓 실시간 체결/호가 구독"
+    help = "KIS 웹소켓 실시간 체결 구독"
 
     def handle(self, *args, **options):
         stock_codes = list(TARGET_STOCKS.keys())
@@ -23,5 +23,4 @@ class Command(BaseCommand):
         client.subscribe_realtime(
             stock_codes=stock_codes,
             on_trade=lambda stock_code, tick: save_trade_tick(stock_code, tick),
-            on_orderbook=lambda stock_code, tick: save_quote_tick(stock_code, tick),
         )
