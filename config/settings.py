@@ -112,6 +112,9 @@ LOGGING = {
         "default": {
             "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         },
+        "plain": {
+            "format": "%(message)s",
+        },
     },
     "handlers": {
         "stdout": {
@@ -124,6 +127,18 @@ LOGGING = {
             "formatter": "default",
             "stream": "ext://sys.stderr",
             "level": "ERROR",
+        },
+        "trade_decision_file": {
+            "class": "logging.FileHandler",
+            "formatter": "plain",
+            "filename": BASE_DIR / "logs" / "trade_decision.log",
+        },
+    },
+    "loggers": {
+        "trade_decision": {
+            "handlers": ["trade_decision_file"],
+            "level": "INFO",
+            "propagate": False,
         },
     },
     "root": {

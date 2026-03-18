@@ -30,6 +30,7 @@ from shared.stock_universe import TARGET_STOCKS
 from shared.utils.json_helpers import normalize_trade_decision, parse_llm_json_object
 
 logger = logging.getLogger(__name__)
+trade_decision_logger = logging.getLogger("trade_decision")
 
 KST = ZoneInfo("Asia/Seoul")
 DECISION_ALLOWED_RESULTS = {
@@ -87,7 +88,7 @@ def record_decision_history(
     if result not in DECISION_ALLOWED_RESULTS:
         raise ValueError("result 허용값은 BUY, SELL, HOLD 입니다")
 
-    return DecisionHistory.objects.create(
+    history = DecisionHistory.objects.create(
         request_payload=request_payload,
         response_payload=response_payload,
         parsed_decision=parsed_decision,
@@ -96,6 +97,8 @@ def record_decision_history(
         error_message=error_message,
         result=result,
     )
+    trade_decision_logger.info(_format_decision_log(history, parsed_decision))
+    return history
 
 
 def execute_buy(
@@ -115,7 +118,7 @@ def execute_buy(
 
     with transaction.atomic():
         apply_virtual_buy(stock_code, price, quantity)
-        return OrderHistory.objects.create(
+        order = OrderHistory.objects.create(
             decision_history=decision_history,
             stock_code=stock_code,
             order_price=price,
@@ -127,6 +130,8 @@ def execute_buy(
             order_placed_at=executed_at,
             result_executed_at=executed_at,
         )
+    trade_decision_logger.info(_format_order_log("BUY", stock_code, price, quantity, order_total_amount))
+    return order
 
 
 def execute_sell(
@@ -150,7 +155,7 @@ def execute_sell(
 
     with transaction.atomic():
         apply_virtual_sell(stock_code, price, quantity)
-        return OrderHistory.objects.create(
+        order = OrderHistory.objects.create(
             decision_history=decision_history,
             stock_code=stock_code,
             order_price=price,
@@ -162,6 +167,8 @@ def execute_sell(
             order_placed_at=executed_at,
             result_executed_at=executed_at,
         )
+    trade_decision_logger.info(_format_order_log("SELL", stock_code, price, quantity, order_total_amount))
+    return order
 
 
 def run_trading_cycle(now: datetime | None = None) -> DecisionHistory:
@@ -447,3 +454,41 @@ def _downgraded_to_hold(original_payload: dict, normalized_payload: dict) -> boo
         DecisionHistory.Result.BUY,
         DecisionHistory.Result.SELL,
     } and normalized_result == DecisionHistory.Result.HOLD
+
+
+def _format_decision_log(history: DecisionHistory, parsed_decision: dict) -> str:
+    decision = parsed_decision.get("decision", {})
+    lines = [
+        "---",
+        f"created_at: {history.created_at}",
+        f"result: {history.result}",
+    ]
+    if history.result != DecisionHistory.Result.HOLD:
+        lines.append(f"stock_code: {decision.get('stock_code')}")
+        lines.append(f"quantity: {decision.get('quantity')}")
+        lines.append(f"price: {decision.get('price')}")
+    lines.append(f"processing_time_ms: {history.processing_time_ms}")
+    if history.is_error:
+        lines.append(f"error: {history.error_message}")
+    analysis = parsed_decision.get("analysis")
+    if analysis:
+        lines.append("analysis:")
+        for item in analysis:
+            lines.append(f"  - stock_code: {item.get('stock_code')}")
+            if item.get("stock_name"):
+                lines.append(f"    stock_name: {item['stock_name']}")
+            if item.get("reason"):
+                lines.append(f"    reason: {item['reason']}")
+            if item.get("confidence") is not None:
+                lines.append(f"    confidence: {item['confidence']}")
+    return "\n".join(lines)
+
+
+def _format_order_log(side: str, stock_code: str, price: Decimal, quantity: int, total: Decimal) -> str:
+    return "\n".join([
+        f"  order: {side}",
+        f"    stock_code: {stock_code}",
+        f"    price: {price}",
+        f"    quantity: {quantity}",
+        f"    total: {total}",
+    ])
